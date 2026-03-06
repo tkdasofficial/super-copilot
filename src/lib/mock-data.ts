@@ -132,7 +132,7 @@ export const MOCK_RESPONSE: StructuredOutput = {
     {
       title: "Video Script",
       type: "text",
-      content: `**HOOK (0:00 - 0:15)**\n"What if I told you that 90% of creators are wasting hours on tasks that AI can do in seconds? These 5 tools are about to change your entire workflow."\n\n**INTRO (0:15 - 0:45)**\nHey everyone! Today we're diving into the 5 AI tools that are completely transforming the creator economy in 2026.\n\n**TOOL #1 — AI Script Generators (0:45 - 1:30)**\nModern script AI understands viewer retention patterns, hook structures, and audience psychology...\n\n**TOOL #2 — AI Thumbnail Designers (1:30 - 2:15)**\nAI tools can now analyze trending thumbnail patterns and generate concepts designed to maximize CTR...\n\n**TOOL #3 — AI SEO Optimizers (2:15 - 3:00)**\nAI SEO tools now generate optimized titles, descriptions, and tags in seconds...\n\n**CTA & OUTRO (4:30 - 5:00)**\n"Smash that like button and subscribe for more creator tools breakdowns!"`,
+      content: `HOOK (0:00 - 0:15)\nWhat if I told you that 90% of creators are wasting hours on tasks that AI can do in seconds? These 5 tools are about to change your entire workflow.\n\nINTRO (0:15 - 0:45)\nHey everyone! Today we are diving into the 5 AI tools that are completely transforming the creator economy in 2026.\n\nTOOL 1 - AI Script Generators (0:45 - 1:30)\nModern script AI understands viewer retention patterns, hook structures, and audience psychology...\n\nTOOL 2 - AI Thumbnail Designers (1:30 - 2:15)\nAI tools can now analyze trending thumbnail patterns and generate concepts designed to maximize CTR...\n\nTOOL 3 - AI SEO Optimizers (2:15 - 3:00)\nAI SEO tools now generate optimized titles, descriptions, and tags in seconds...\n\nCTA and OUTRO (4:30 - 5:00)\nSmash that like button and subscribe for more creator tools breakdowns!`,
     },
     {
       title: "SEO Title",
@@ -152,10 +152,10 @@ export const MOCK_RESPONSE: StructuredOutput = {
     {
       title: "Thumbnail Concept",
       type: "text",
-      content: "**Style:** Bold text with high contrast\n**Text:** \"5 AI TOOLS\" in large white text\n**Background:** Dark gradient\n**Subject:** Creator looking amazed at floating UI\n**Colors:** Black, White, subtle accent",
+      content: "Style: Bold text with high contrast\nText: 5 AI TOOLS in large white text\nBackground: Dark gradient\nSubject: Creator looking amazed at floating UI\nColors: Black, White, subtle accent",
     },
   ],
 };
 
 // Mock text-only response for general chat
-export const MOCK_TEXT_RESPONSE = "Great question! Here are some strategies that are working really well for creators right now:\n\n**1. Consistency over perfection** — Post regularly, even if it's not perfect. The algorithm rewards consistency.\n\n**2. Short-form to long-form pipeline** — Use Shorts/Reels to drive traffic to your longer content.\n\n**3. Community engagement** — Reply to every comment in the first hour. This signals to the algorithm that your content is engaging.\n\n**4. Trend-jacking with a twist** — Don't just follow trends, add your unique perspective.\n\n**5. Collaborate strategically** — Partner with creators who have a similar audience size but different content focus.\n\nWould you like me to dive deeper into any of these strategies?";
+export const MOCK_TEXT_RESPONSE = "Great question! Here are some strategies that are working really well for creators right now:\n\n1. Consistency over perfection - Post regularly, even if it is not perfect. The algorithm rewards consistency.\n\n2. Short-form to long-form pipeline - Use Shorts and Reels to drive traffic to your longer content.\n\n3. Community engagement - Reply to every comment in the first hour. This signals to the algorithm that your content is engaging.\n\n4. Trend-jacking with a twist - Do not just follow trends, add your unique perspective.\n\n5. Collaborate strategically - Partner with creators who have a similar audience size but different content focus.\n\nWould you like me to dive deeper into any of these strategies?";
