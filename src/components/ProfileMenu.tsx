@@ -1,4 +1,4 @@
-import { User, Settings, FileText, Shield, HelpCircle, LogOut, Clock } from "lucide-react";
+import { User, Settings, FileText, Shield, HelpCircle, LogOut, Clock, Crown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -30,6 +30,10 @@ const ProfileMenu = () => {
         <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/history")}>
           <Clock className="w-4 h-4" />
           <span>Chat History</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="gap-2.5 cursor-pointer text-primary" onClick={() => navigate("/upgrade")}>
+          <Crown className="w-4 h-4" />
+          <span>Upgrade Plan</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/terms")}>

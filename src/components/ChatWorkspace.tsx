@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu } from "lucide-react";
 import type { AITool, ChatMessage as ChatMessageType } from "@/lib/mock-data";
 import { MOCK_RESPONSE, MOCK_TEXT_RESPONSE } from "@/lib/mock-data";
+import { useChatHistory } from "@/context/ChatHistoryContext";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
 import EmptyState from "./EmptyState";
@@ -16,7 +17,9 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
   const [messages, setMessages] = useState<ChatMessageType[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [latestMsgId, setLatestMsgId] = useState<string | null>(null);
+  const [hasSavedToHistory, setHasSavedToHistory] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { addChat } = useChatHistory();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -32,6 +35,13 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
     };
     setMessages((prev) => [...prev, userMsg]);
     setIsTyping(true);
+
+    // Save first message as chat history entry
+    if (!hasSavedToHistory) {
+      const title = content.length > 40 ? content.slice(0, 40) + "..." : content;
+      addChat(title, content, tool?.id);
+      setHasSavedToHistory(true);
+    }
 
     const delay = 1500 + Math.random() * 1000;
     setTimeout(() => {
@@ -49,14 +59,13 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
       setLatestMsgId(aiId);
       setIsTyping(false);
     }, delay);
-  }, [tool]);
+  }, [tool, hasSavedToHistory, addChat]);
 
   const hasMessages = messages.length > 0;
   const title = tool ? tool.shortName : "Super Copilot";
 
   return (
     <div className="flex flex-col h-full flex-1 min-w-0">
-      {/* Top bar */}
       <header className="flex items-center justify-between px-3 py-2.5 sm:px-4 sm:py-3 border-b border-border bg-background/80 backdrop-blur-sm">
         <button
           onClick={onMenuClick}
@@ -64,17 +73,13 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
         >
           <Menu className="w-5 h-5" />
         </button>
-
         <div className="flex items-center gap-2">
           {tool && <tool.icon className="w-4 h-4 text-foreground" />}
           <h2 className="text-sm font-display font-semibold text-foreground">{title}</h2>
         </div>
-
-        {/* Spacer for profile icon (handled by parent) */}
         <div className="w-9 lg:hidden" />
       </header>
 
-      {/* Chat area */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {hasMessages ? (
           <div className="py-3">
@@ -88,7 +93,6 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
         )}
       </div>
 
-      {/* Input */}
       <ChatInput toolName={tool?.shortName} onSend={handleSend} disabled={isTyping} />
     </div>
   );
