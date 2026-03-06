@@ -9,7 +9,7 @@ import logo from "@/assets/logo.svg";
 type Props = {
   onNewChat: () => void;
   isMainChat: boolean;
-  chatHistory: ChatHistoryItem[];
+  chatHistory: { id: string; title: string; toolId?: string; preview: string; date: string; createdAt: number }[];
 };
 
 const DesktopSidebar = ({ onNewChat, isMainChat, chatHistory }: Props) => {
