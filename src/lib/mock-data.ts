@@ -66,7 +66,7 @@ export const AI_TOOLS: AITool[] = [
     description: "Generate stunning visuals and graphics",
     icon: Sparkles,
     emptyStateTitle: "What visuals do you need?",
-    emptyStateSubtitle: "Generate optimized prompts for thumbnails, social graphics, and illustrations.",
+    emptyStateSubtitle: "Generate images in any style and aspect ratio using AI.",
     samplePrompts: [
       { icon: WandSparkles, label: "Sci-fi landscape", prompt: "Generate an epic sci-fi landscape for a video background" },
       { icon: Sparkles, label: "Social graphic", prompt: "Create a social media graphic for a product launch" },
@@ -121,6 +121,7 @@ export type ChatMessage = {
   timestamp: Date;
   toolId?: string;
   structuredOutput?: StructuredOutput;
+  imageUrl?: string;
 };
 
 export type StructuredOutput = {
@@ -132,7 +133,7 @@ export const MOCK_RESPONSE: StructuredOutput = {
     {
       title: "Video Script",
       type: "text",
-      content: `HOOK (0:00 - 0:15)\nWhat if I told you that 90% of creators are wasting hours on tasks that AI can do in seconds? These 5 tools are about to change your entire workflow.\n\nINTRO (0:15 - 0:45)\nHey everyone! Today we are diving into the 5 AI tools that are completely transforming the creator economy in 2026.\n\nTOOL 1 - AI Script Generators (0:45 - 1:30)\nModern script AI understands viewer retention patterns, hook structures, and audience psychology...\n\nTOOL 2 - AI Thumbnail Designers (1:30 - 2:15)\nAI tools can now analyze trending thumbnail patterns and generate concepts designed to maximize CTR...\n\nTOOL 3 - AI SEO Optimizers (2:15 - 3:00)\nAI SEO tools now generate optimized titles, descriptions, and tags in seconds...\n\nCTA and OUTRO (4:30 - 5:00)\nSmash that like button and subscribe for more creator tools breakdowns!`,
+      content: `HOOK (0:00 - 0:15)\nWhat if I told you that 90% of creators are wasting hours on tasks that AI can do in seconds? These 5 tools are about to change your entire workflow.\n\nINTRO (0:15 - 0:45)\nHey everyone! Today we are diving into the 5 AI tools that are completely transforming the creator economy in 2026.`,
     },
     {
       title: "SEO Title",
@@ -140,22 +141,11 @@ export const MOCK_RESPONSE: StructuredOutput = {
       content: "5 AI Tools Every Creator NEEDS in 2026 (Game Changers!)",
     },
     {
-      title: "Video Description",
-      type: "text",
-      content: "Discover the top 5 AI tools transforming the creator economy in 2026. From script writers to thumbnail designers.\n\nTimestamps:\n0:00 - Hook\n0:45 - AI Script Generators\n1:30 - AI Thumbnail Designers\n2:15 - AI SEO Optimizers\n3:00 - AI Video Editors\n4:30 - Outro",
-    },
-    {
       title: "Keywords",
       type: "list",
-      content: "ai tools for creators, ai content creation 2026, youtube ai tools, best ai tools, creator economy, ai script writer, ai thumbnail, content creator tools, youtube growth",
-    },
-    {
-      title: "Thumbnail Concept",
-      type: "text",
-      content: "Style: Bold text with high contrast\nText: 5 AI TOOLS in large white text\nBackground: Dark gradient\nSubject: Creator looking amazed at floating UI\nColors: Black, White, subtle accent",
+      content: "ai tools for creators, ai content creation 2026, youtube ai tools, best ai tools, creator economy",
     },
   ],
 };
 
-// Mock text-only response for general chat
-export const MOCK_TEXT_RESPONSE = "Great question! Here are some strategies that are working really well for creators right now:\n\n1. Consistency over perfection - Post regularly, even if it is not perfect. The algorithm rewards consistency.\n\n2. Short-form to long-form pipeline - Use Shorts and Reels to drive traffic to your longer content.\n\n3. Community engagement - Reply to every comment in the first hour. This signals to the algorithm that your content is engaging.\n\n4. Trend-jacking with a twist - Do not just follow trends, add your unique perspective.\n\n5. Collaborate strategically - Partner with creators who have a similar audience size but different content focus.\n\nWould you like me to dive deeper into any of these strategies?";
+export const MOCK_TEXT_RESPONSE = "Great question! Here are some strategies that are working really well for creators right now.";
