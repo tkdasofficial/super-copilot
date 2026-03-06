@@ -12,35 +12,19 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
   const isUser = message.role === "user";
 
   return (
-    <div className={cn("flex gap-3 px-4 py-3 max-w-2xl mx-auto animate-fade-up")}>
-      {/* Avatar */}
-      <div className="shrink-0 mt-0.5">
-        {isUser ? (
-          <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-            <span className="text-xs font-semibold text-primary">U</span>
-          </div>
-        ) : (
-          <div className="w-7 h-7 rounded-full overflow-hidden ring-1 ring-border">
-            <img src={logo} alt="AI" className="w-full h-full object-cover" />
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-muted-foreground mb-1.5">
-          {isUser ? "You" : "Super Copilot"}
-        </p>
-        {isUser ? (
-          <div className="rounded-xl bg-primary/5 border border-border px-3.5 py-2.5">
-            <p className="text-[15px] text-foreground leading-relaxed">{message.content}</p>
-          </div>
-        ) : message.structuredOutput ? (
-          <StructuredOutput sections={message.structuredOutput.sections} animate={isNew} />
-        ) : (
-          <StreamingText text={message.content} animate={isNew} />
-        )}
-      </div>
+    <div className={cn("px-4 py-3 max-w-2xl mx-auto animate-fade-up")}>
+      <p className="text-xs font-medium text-muted-foreground mb-1.5">
+        {isUser ? "You" : "Super Copilot"}
+      </p>
+      {isUser ? (
+        <div className="rounded-xl bg-primary/5 border border-border px-3.5 py-2.5">
+          <p className="text-[15px] text-foreground leading-relaxed">{message.content}</p>
+        </div>
+      ) : message.structuredOutput ? (
+        <StructuredOutput sections={message.structuredOutput.sections} animate={isNew} />
+      ) : (
+        <StreamingText text={message.content} animate={isNew} />
+      )}
     </div>
   );
 };
