@@ -22,7 +22,7 @@ const DesktopSidebar = ({ onNewChat, isMainChat, chatHistory }: Props) => {
 
   const displayHistory = searchQuery ? searchHistory(searchQuery) : chatHistory;
 
-  const startRename = (chat: ChatHistoryItem) => {
+  const startRename = (chat: { id: string; title: string }) => {
     setEditingId(chat.id);
     setEditValue(chat.title);
   };
