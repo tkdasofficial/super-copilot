@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils";
-import { X, PenSquare, Search, MessageSquare, Grid3X3, Clock } from "lucide-react";
+import { X, PenSquare, MessageSquare, Grid3X3, Clock, Pencil, Trash2, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useChatHistory } from "@/context/ChatHistoryContext";
 import logo from "@/assets/logo.svg";
 
 type Props = {
@@ -8,11 +10,24 @@ type Props = {
   onClose: () => void;
   onNewChat: () => void;
   isMainChat: boolean;
-  chatHistory: { id: string; title: string; toolId: string }[];
+  chatHistory: { id: string; title: string; toolId?: string }[];
 };
 
 const MobileSidebar = ({ open, onClose, onNewChat, isMainChat, chatHistory }: Props) => {
   const navigate = useNavigate();
+  const { renameChat, deleteChat } = useChatHistory();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const startRename = (id: string, title: string) => {
+    setEditingId(id);
+    setEditValue(title);
+  };
+
+  const confirmRename = () => {
+    if (editingId && editValue.trim()) renameChat(editingId, editValue.trim());
+    setEditingId(null);
+  };
 
   return (
     <>
@@ -42,10 +57,6 @@ const MobileSidebar = ({ open, onClose, onNewChat, isMainChat, chatHistory }: Pr
           >
             <PenSquare className="w-4 h-4" />
             <span>New chat</span>
-          </button>
-          <button className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
-            <Search className="w-4 h-4" />
-            <span>Search</span>
           </button>
         </div>
 
@@ -85,12 +96,39 @@ const MobileSidebar = ({ open, onClose, onNewChat, isMainChat, chatHistory }: Pr
             <p className="px-3 pb-1.5 text-[10px] text-muted-foreground uppercase tracking-widest font-medium">Recent</p>
             <nav className="space-y-0.5">
               {chatHistory.map((chat) => (
-                <button
-                  key={chat.id}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors truncate text-left"
-                >
-                  <span className="truncate">{chat.title}</span>
-                </button>
+                <div key={chat.id} className="group relative">
+                  {editingId === chat.id ? (
+                    <div className="flex items-center gap-1 px-2 py-1.5">
+                      <input
+                        autoFocus
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") setEditingId(null); }}
+                        className="flex-1 px-2 py-1 rounded text-sm bg-sidebar-accent text-sidebar-foreground outline-none border border-primary/40"
+                      />
+                      <button onClick={confirmRename} className="p-1 rounded text-primary hover:bg-sidebar-accent">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => setEditingId(null)} className="p-1 rounded text-muted-foreground hover:bg-sidebar-accent">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center">
+                      <button className="flex-1 text-left px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors truncate">
+                        {chat.title}
+                      </button>
+                      <div className="hidden group-hover:flex items-center gap-0.5 pr-1">
+                        <button onClick={() => startRename(chat.id, chat.title)} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-sidebar-accent">
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => deleteChat(chat.id)} className="p-1 rounded text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))}
             </nav>
           </div>
