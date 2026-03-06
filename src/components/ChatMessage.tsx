@@ -1,12 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import type { ChatMessage as ChatMessageType } from "@/lib/mock-data";
 import { Copy, Check, FileText, List, Code, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import logo from "@/assets/logo.svg";
+import ReactMarkdown from "react-markdown";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
-
-const CHARS_PER_SECOND = 60;
 
 const ChatMessage = ({ message, isNew = false }: Props) => {
   const isUser = message.role === "user";
@@ -18,68 +16,30 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
       </p>
       {isUser ? (
         <div className="rounded-xl bg-primary/5 border border-border px-3.5 py-2.5">
+          {message.imageUrl && (
+            <img
+              src={message.imageUrl}
+              alt="Attached"
+              className="w-32 h-32 rounded-lg object-cover mb-2 border border-border"
+            />
+          )}
           <p className="text-[15px] text-foreground leading-relaxed">{message.content}</p>
         </div>
       ) : message.structuredOutput ? (
-        <StructuredOutput sections={message.structuredOutput.sections} animate={isNew} />
+        <StructuredOutput sections={message.structuredOutput.sections} />
       ) : (
-        <StreamingText text={message.content} animate={isNew} />
-      )}
-    </div>
-  );
-};
-
-// Streaming text with clean paragraph rendering (no markdown symbols)
-const StreamingText = ({ text, animate }: { text: string; animate: boolean }) => {
-  const [displayed, setDisplayed] = useState(animate ? "" : text);
-  const indexRef = useRef(0);
-
-  useEffect(() => {
-    if (!animate) { setDisplayed(text); return; }
-    indexRef.current = 0;
-    setDisplayed("");
-    const interval = setInterval(() => {
-      indexRef.current += 1;
-      setDisplayed(text.slice(0, indexRef.current));
-      if (indexRef.current >= text.length) clearInterval(interval);
-    }, 1000 / CHARS_PER_SECOND);
-    return () => clearInterval(interval);
-  }, [text, animate]);
-
-  const isStreaming = animate && indexRef.current < text.length;
-
-  // Split into paragraphs and render with numbered items styled
-  const paragraphs = displayed.split("\n\n");
-
-  return (
-    <div className="space-y-2.5">
-      {paragraphs.map((para, i) => {
-        // Check if it starts with a number like "1. " or "2. "
-        const numberMatch = para.match(/^(\d+)\.\s(.+)/s);
-        if (numberMatch) {
-          const [, num, rest] = numberMatch;
-          // Split on " - " to get title and description
-          const dashIdx = rest.indexOf(" - ");
-          const title = dashIdx > -1 ? rest.slice(0, dashIdx) : rest;
-          const desc = dashIdx > -1 ? rest.slice(dashIdx + 3) : "";
-          return (
-            <div key={i} className="flex items-start gap-2.5 rounded-lg bg-card border border-border px-3 py-2.5">
-              <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-[10px] font-semibold text-primary">{num}</span>
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">{title}</p>
-                {desc && <p className="text-sm text-muted-foreground mt-0.5">{desc}</p>}
-              </div>
-            </div>
-          );
-        }
-        return (
-          <p key={i} className="text-[15px] text-foreground leading-relaxed">{para}</p>
-        );
-      })}
-      {isStreaming && (
-        <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 align-text-bottom animate-pulse" />
+        <div className="space-y-2.5">
+          {message.imageUrl && (
+            <img
+              src={message.imageUrl}
+              alt="Generated"
+              className="max-w-sm w-full rounded-xl border border-border"
+            />
+          )}
+          <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground [&_p]:leading-relaxed [&_p]:mb-2 [&_li]:leading-relaxed [&_h1]:font-display [&_h2]:font-display [&_h3]:font-display [&_strong]:text-foreground [&_a]:text-primary">
+            <ReactMarkdown>{message.content}</ReactMarkdown>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -95,23 +55,10 @@ const sectionIcon = (type: string) => {
 };
 
 // Structured output with card reveal
-const StructuredOutput = ({ sections, animate }: { sections: { title: string; content: string; type: string }[]; animate: boolean }) => {
-  const [visibleCount, setVisibleCount] = useState(animate ? 0 : sections.length);
-
-  useEffect(() => {
-    if (!animate) { setVisibleCount(sections.length); return; }
-    let i = 0;
-    const interval = setInterval(() => {
-      i++;
-      setVisibleCount(i);
-      if (i >= sections.length) clearInterval(interval);
-    }, 250);
-    return () => clearInterval(interval);
-  }, [sections.length, animate]);
-
+const StructuredOutput = ({ sections }: { sections: { title: string; content: string; type: string }[] }) => {
   return (
     <div className="space-y-2.5">
-      {sections.slice(0, visibleCount).map((section, i) => {
+      {sections.map((section, i) => {
         const Icon = sectionIcon(section.type);
         return (
           <div
@@ -138,7 +85,6 @@ const StructuredOutput = ({ sections, animate }: { sections: { title: string; co
                 <div className="space-y-1.5">
                   {section.content.split("\n").map((line, j) => {
                     if (!line.trim()) return null;
-                    // Lines that look like section headers (ALL CAPS or title-like)
                     const isHeader = /^[A-Z][A-Z\s\d\-()&:]+$/.test(line.trim()) || /^(HOOK|INTRO|TOOL|CTA|OUTRO)/.test(line.trim());
                     if (isHeader) {
                       return (
@@ -169,7 +115,7 @@ const CopyButton = ({ text }: { text: string }) => {
       onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
       className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
     >
-      {copied ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+      {copied ? <Check className="w-3.5 h-3.5 text-primary" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   );
 };

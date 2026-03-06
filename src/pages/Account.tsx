@@ -1,19 +1,39 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, User, Mail } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import ProfileMenu from "@/components/ProfileMenu";
-
-const MOCK_USER = {
-  name: "Alex Johnson",
-  email: "alex@example.com",
-  avatar: "",
-  plan: "Free",
-};
 
 const Account = () => {
   const navigate = useNavigate();
-  const [name, setName] = useState(MOCK_USER.name);
-  const [email] = useState(MOCK_USER.email);
+  const { toast } = useToast();
+  const { profile, user } = useAuth();
+  const [name, setName] = useState(profile?.full_name || "");
+  const [sub, setSub] = useState<any>(null);
+
+  useEffect(() => {
+    if (profile) setName(profile.full_name || "");
+  }, [profile]);
+
+  useEffect(() => {
+    if (user) {
+      supabase.from("subscriptions").select("*").eq("user_id", user.id).single().then(({ data }) => {
+        if (data) setSub(data);
+      });
+    }
+  }, [user]);
+
+  const saveName = async () => {
+    if (!user) return;
+    const { error } = await supabase.from("profiles").update({ full_name: name, updated_at: new Date().toISOString() }).eq("id", user.id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Profile updated" });
+    }
+  };
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
@@ -32,12 +52,16 @@ const Account = () => {
             <h2 className="font-display text-lg font-semibold text-foreground mb-4">Profile</h2>
             <div className="space-y-4">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-foreground/10 flex items-center justify-center">
-                  <User className="w-7 h-7 text-foreground" />
+                <div className="w-16 h-16 rounded-full bg-foreground/10 flex items-center justify-center overflow-hidden">
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-7 h-7 text-foreground" />
+                  )}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-foreground">{name}</p>
-                  <p className="text-xs text-muted-foreground">{MOCK_USER.plan} plan</p>
+                  <p className="text-sm font-medium text-foreground">{name || "User"}</p>
+                  <p className="text-xs text-muted-foreground">{sub?.plan || "free"} plan</p>
                 </div>
               </div>
 
@@ -54,29 +78,12 @@ const Account = () => {
                 <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Email</label>
                 <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5">
                   <Mail className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">{email}</span>
+                  <span className="text-sm text-foreground">{profile?.email || user?.email || ""}</span>
                 </div>
               </div>
 
-              <button className="w-full py-2.5 rounded-xl bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity">
+              <button onClick={saveName} className="w-full py-2.5 rounded-xl bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity">
                 Save changes
-              </button>
-            </div>
-          </section>
-
-          {/* Plan */}
-          <section>
-            <h2 className="font-display text-lg font-semibold text-foreground mb-4">Plan</h2>
-            <div className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Free Plan</p>
-                  <p className="text-xs text-muted-foreground">5 AI workers · 50 prompts/day</p>
-                </div>
-                <span className="px-3 py-1 rounded-full bg-accent text-accent-foreground text-xs font-medium">Current</span>
-              </div>
-              <button className="w-full py-2.5 rounded-xl border border-border text-sm font-medium text-foreground hover:bg-accent transition-colors">
-                Upgrade to Pro
               </button>
             </div>
           </section>
