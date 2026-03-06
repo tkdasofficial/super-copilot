@@ -3,7 +3,7 @@ import { PenSquare, Search, MessageSquare, Grid3X3, Clock, Pencil, Trash2, Check
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useChatHistory } from "@/context/ChatHistoryContext";
-import type { ChatHistoryItem } from "@/context/ChatHistoryContext";
+
 import logo from "@/assets/logo.svg";
 
 type Props = {
