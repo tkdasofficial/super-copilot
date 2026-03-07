@@ -5,28 +5,37 @@ import { useChatHistory } from "@/context/ChatHistoryContext";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
 import EmptyState from "./EmptyState";
-import TypingIndicator from "./TypingIndicator";
+import TypingIndicator, { detectPhase, type ThinkingPhase } from "./TypingIndicator";
 
 type Props = {
   tool?: AITool;
   onMenuClick: () => void;
+  initialMessages?: ChatMessageType[];
+  chatId?: string;
 };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
-const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
-  const [messages, setMessages] = useState<ChatMessageType[]>([]);
+const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalChatId }: Props) => {
+  const [messages, setMessages] = useState<ChatMessageType[]>(initialMessages || []);
   const [isTyping, setIsTyping] = useState(false);
-  const [hasSavedToHistory, setHasSavedToHistory] = useState(false);
+  const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase>("thinking");
+  const [chatId, setChatId] = useState<string | null>(externalChatId || null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { addChat } = useChatHistory();
+  const { addChat, updateChatMessages } = useChatHistory();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
+  // Persist messages to history whenever they change
+  useEffect(() => {
+    if (chatId && messages.length > 0) {
+      updateChatMessages(chatId, messages);
+    }
+  }, [messages, chatId, updateChatMessages]);
+
   const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }) => {
-    // Build user message
     const userMsg: ChatMessageType = {
       id: Date.now().toString(),
       role: "user",
@@ -36,21 +45,29 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
       imageUrl: imageData ? `data:${imageData.mimeType};base64,${imageData.base64}` : undefined,
     };
     setMessages((prev) => [...prev, userMsg]);
+
+    // Detect phase from content
+    const phase = detectPhase(content, tool?.id);
+    setThinkingPhase("thinking"); // Always start with thinking
     setIsTyping(true);
 
     // Save first message as chat history entry
-    if (!hasSavedToHistory) {
+    if (!chatId) {
       const title = content.length > 40 ? content.slice(0, 40) + "..." : content;
-      addChat(title, content, tool?.id);
-      setHasSavedToHistory(true);
+      const newId = addChat(title, content, tool?.id);
+      setChatId(newId);
     }
+
+    // Transition from "thinking" to the actual work phase after a delay
+    const phaseTimer = setTimeout(() => {
+      setThinkingPhase(phase);
+    }, 1200);
 
     // Check if this is an image generation request
     const isImageGen = tool?.id === "image-generator" || /\b(generate|create|make|draw|design)\b.*\b(image|picture|photo|illustration|graphic|visual|thumbnail|art)\b/i.test(content);
     const isImageToImage = imageData && isImageGen;
 
     if (isImageToImage) {
-      // Image-to-image flow
       try {
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/image-to-image`, {
           method: "POST",
@@ -72,15 +89,14 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
           ? `data:image/png;base64,${data.images[0].base64}`
           : data.images?.[0]?.url || data.images?.[0];
 
-        const aiMsg: ChatMessageType = {
+        setMessages((prev) => [...prev, {
           id: (Date.now() + 1).toString(),
           role: "assistant",
           content: `Here is your generated image based on the reference. Prompt used: ${data.prompt || "optimized prompt"}`,
           timestamp: new Date(),
           toolId: tool?.id,
           imageUrl: typeof imageUrl === "string" ? imageUrl : undefined,
-        };
-        setMessages((prev) => [...prev, aiMsg]);
+        }]);
       } catch (e: any) {
         setMessages((prev) => [...prev, {
           id: (Date.now() + 1).toString(),
@@ -89,16 +105,13 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
           timestamp: new Date(),
         }]);
       }
+      clearTimeout(phaseTimer);
       setIsTyping(false);
       return;
     }
 
     if (isImageGen && !imageData) {
-      // Text-to-image flow
       try {
-        // First get an optimized prompt from Gemini
-        const chatMessages = [{ role: "user", content }];
-        
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`, {
           method: "POST",
           headers: {
@@ -114,15 +127,14 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
           ? `data:image/png;base64,${data.images[0].base64}`
           : data.images?.[0]?.url || data.images?.[0];
 
-        const aiMsg: ChatMessageType = {
+        setMessages((prev) => [...prev, {
           id: (Date.now() + 1).toString(),
           role: "assistant",
           content: "Here is your generated image!",
           timestamp: new Date(),
           toolId: tool?.id,
           imageUrl: typeof imageUrl === "string" ? imageUrl : undefined,
-        };
-        setMessages((prev) => [...prev, aiMsg]);
+        }]);
       } catch (e: any) {
         setMessages((prev) => [...prev, {
           id: (Date.now() + 1).toString(),
@@ -131,13 +143,13 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
           timestamp: new Date(),
         }]);
       }
+      clearTimeout(phaseTimer);
       setIsTyping(false);
       return;
     }
 
-    // Regular chat - streaming with Gemini
+    // Regular chat - streaming
     try {
-      // Build conversation history for context
       const chatMessages = messages
         .filter((m) => !m.imageUrl || m.role === "user")
         .map((m) => {
@@ -153,7 +165,6 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
           return { role: m.role, content: m.content };
         });
 
-      // Add current message
       if (imageData) {
         chatMessages.push({
           role: "user",
@@ -180,7 +191,9 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
         throw new Error(errData.error || "Chat failed");
       }
 
-      // Stream response
+      // Switch to working phase once streaming starts
+      setThinkingPhase(phase === "thinking" ? "working" : phase);
+
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let textBuffer = "";
@@ -206,6 +219,10 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
             const parsed = JSON.parse(jsonStr);
             const delta = parsed.choices?.[0]?.delta?.content;
             if (delta) {
+              // Once we get first token, stop showing typing indicator
+              if (!assistantMsgCreated) {
+                setIsTyping(false);
+              }
               assistantContent += delta;
               if (!assistantMsgCreated) {
                 assistantMsgCreated = true;
@@ -246,8 +263,9 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
       }]);
     }
 
+    clearTimeout(phaseTimer);
     setIsTyping(false);
-  }, [tool, hasSavedToHistory, addChat, messages]);
+  }, [tool, chatId, addChat, messages, updateChatMessages]);
 
   const hasMessages = messages.length > 0;
   const title = tool ? tool.shortName : "Super Copilot";
@@ -274,7 +292,7 @@ const ChatWorkspace = ({ tool, onMenuClick }: Props) => {
             {messages.map((msg) => (
               <ChatMessage key={msg.id} message={msg} isNew={false} />
             ))}
-            {isTyping && <TypingIndicator />}
+            {isTyping && <TypingIndicator phase={thinkingPhase} />}
           </div>
         ) : (
           <EmptyState tool={tool} onPromptClick={(prompt) => handleSend(prompt)} />
