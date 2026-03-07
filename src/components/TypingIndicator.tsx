@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import logo from "@/assets/logo.svg";
 
 export type ThinkingPhase = "thinking" | "creating" | "analyzing" | "working" | "researching" | "writing" | "optimizing";
 
@@ -15,10 +14,9 @@ const PHASE_LABELS: Record<ThinkingPhase, string> = {
 
 type Props = {
   phase?: ThinkingPhase;
-  isStreaming?: boolean;
 };
 
-const TypingIndicator = ({ phase = "thinking", isStreaming = false }: Props) => {
+const TypingIndicator = ({ phase = "thinking" }: Props) => {
   const [dots, setDots] = useState(0);
 
   useEffect(() => {
@@ -32,15 +30,10 @@ const TypingIndicator = ({ phase = "thinking", isStreaming = false }: Props) => 
   const dotStr = ".".repeat(dots);
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 max-w-2xl mx-auto animate-fade-in">
-      <div className="w-7 h-7 rounded-full overflow-hidden animate-spin-slow shrink-0">
-        <img src={logo} alt="AI" className="w-full h-full object-cover" />
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className="text-sm text-muted-foreground font-medium min-w-[100px]">
-          {label}{dotStr}
-        </span>
-      </div>
+    <div className="flex items-center gap-2 px-4 py-3 max-w-2xl mx-auto animate-fade-in">
+      <span className="text-sm text-muted-foreground font-medium">
+        {label}{dotStr}
+      </span>
     </div>
   );
 };
