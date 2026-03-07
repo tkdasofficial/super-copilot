@@ -37,6 +37,10 @@ const History = () => {
     setEditingId(null);
   };
 
+  const openChat = (chat: typeof history[0]) => {
+    navigate("/", { state: { chatId: chat.id, toolId: chat.toolId } });
+  };
+
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
       <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-background/80 backdrop-blur-sm">
@@ -72,7 +76,8 @@ const History = () => {
                   {chats.map((chat) => (
                     <div
                       key={chat.id}
-                      className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 hover:bg-accent transition-colors group"
+                      onClick={() => editingId !== chat.id && openChat(chat)}
+                      className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 hover:bg-accent transition-colors group cursor-pointer"
                     >
                       <div className="flex-1 min-w-0">
                         {editingId === chat.id ? (
@@ -82,12 +87,13 @@ const History = () => {
                               value={editValue}
                               onChange={(e) => setEditValue(e.target.value)}
                               onKeyDown={(e) => { if (e.key === "Enter") confirmRename(); if (e.key === "Escape") setEditingId(null); }}
+                              onClick={(e) => e.stopPropagation()}
                               className="flex-1 px-2 py-1 rounded-lg text-sm bg-background text-foreground outline-none border border-primary/40"
                             />
-                            <button onClick={confirmRename} className="p-1.5 rounded-lg text-primary hover:bg-primary/10">
+                            <button onClick={(e) => { e.stopPropagation(); confirmRename(); }} className="p-1.5 rounded-lg text-primary hover:bg-primary/10">
                               <Check className="w-4 h-4" />
                             </button>
-                            <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent">
+                            <button onClick={(e) => { e.stopPropagation(); setEditingId(null); }} className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent">
                               <X className="w-4 h-4" />
                             </button>
                           </div>

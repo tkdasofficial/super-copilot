@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { AI_TOOLS, type AITool } from "@/lib/mock-data";
 import { useChatHistory } from "@/context/ChatHistoryContext";
 import DesktopSidebar from "@/components/DesktopSidebar";
@@ -9,13 +9,20 @@ import ProfileMenu from "@/components/ProfileMenu";
 
 const Index = () => {
   const location = useLocation();
-  const initialToolId = (location.state as any)?.toolId;
+  const state = location.state as any;
+  const initialToolId = state?.toolId;
+  const initialChatId = state?.chatId;
   const initialTool = initialToolId ? AI_TOOLS.find((t) => t.id === initialToolId) : undefined;
 
-  const [selectedTool, setSelectedTool] = useState<AITool | undefined>(initialTool);
+  const { getChatById, history } = useChatHistory();
+  
+  // Load chat from history if chatId is provided
+  const loadedChat = initialChatId ? getChatById(initialChatId) : undefined;
+  const loadedTool = loadedChat?.toolId ? AI_TOOLS.find((t) => t.id === loadedChat.toolId) : undefined;
+
+  const [selectedTool, setSelectedTool] = useState<AITool | undefined>(initialTool || loadedTool);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatKey, setChatKey] = useState(0);
-  const { history } = useChatHistory();
 
   const handleNewChat = () => {
     setSelectedTool(undefined);
@@ -45,9 +52,11 @@ const Index = () => {
           <ProfileMenu />
         </div>
         <ChatWorkspace
-          key={`${selectedTool?.id ?? "main"}-${chatKey}`}
+          key={`${selectedTool?.id ?? "main"}-${chatKey}-${initialChatId || ""}`}
           tool={selectedTool}
           onMenuClick={() => setSidebarOpen(true)}
+          initialMessages={loadedChat?.messages}
+          chatId={initialChatId}
         />
       </div>
     </div>

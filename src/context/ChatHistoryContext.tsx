@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import type { ChatMessage } from "@/lib/mock-data";
 
 export type ChatHistoryItem = {
   id: string;
@@ -7,6 +8,7 @@ export type ChatHistoryItem = {
   preview: string;
   date: string;
   createdAt: number;
+  messages: ChatMessage[];
 };
 
 type ChatHistoryContextType = {
@@ -15,6 +17,8 @@ type ChatHistoryContextType = {
   renameChat: (id: string, newTitle: string) => void;
   deleteChat: (id: string) => void;
   searchHistory: (query: string) => ChatHistoryItem[];
+  updateChatMessages: (id: string, messages: ChatMessage[]) => void;
+  getChatById: (id: string) => ChatHistoryItem | undefined;
 };
 
 const ChatHistoryContext = createContext<ChatHistoryContextType | null>(null);
@@ -29,14 +33,14 @@ const getDateLabel = (ts: number): string => {
 };
 
 const INITIAL_HISTORY: ChatHistoryItem[] = [
-  { id: "1", title: "AI tools for creators script", toolId: "script-writer", preview: "Write a 10-minute YouTube script about AI tools", date: "Today", createdAt: Date.now() - 3600000 },
-  { id: "2", title: "Tech review thumbnail", toolId: "thumbnail-designer", preview: "Design a thumbnail for a tech review video", date: "Today", createdAt: Date.now() - 7200000 },
-  { id: "3", title: "Gaming channel SEO", toolId: "seo-optimizer", preview: "Optimize SEO for my gaming channel", date: "Yesterday", createdAt: Date.now() - 90000000 },
-  { id: "4", title: "Horror story narration", toolId: "script-writer", preview: "Create a horror story narration script with suspense hooks", date: "Yesterday", createdAt: Date.now() - 100000000 },
-  { id: "5", title: "Productivity hacks short", toolId: "content-optimizer", preview: "Generate a full content package for productivity", date: "Mar 4", createdAt: Date.now() - 200000000 },
-  { id: "6", title: "Blockchain explainer", toolId: "script-writer", preview: "Write an educational explainer script about blockchain", date: "Mar 3", createdAt: Date.now() - 300000000 },
-  { id: "7", title: "Fitness transformation SEO", toolId: "seo-optimizer", preview: "Create a full SEO package for a fitness video", date: "Mar 2", createdAt: Date.now() - 400000000 },
-  { id: "8", title: "Fantasy story illustrations", toolId: "image-generator", preview: "Design an illustration for a fantasy story video", date: "Mar 1", createdAt: Date.now() - 500000000 },
+  { id: "1", title: "AI tools for creators script", toolId: "script-writer", preview: "Write a 10-minute YouTube script about AI tools", date: "Today", createdAt: Date.now() - 3600000, messages: [] },
+  { id: "2", title: "Tech review thumbnail", toolId: "thumbnail-designer", preview: "Design a thumbnail for a tech review video", date: "Today", createdAt: Date.now() - 7200000, messages: [] },
+  { id: "3", title: "Gaming channel SEO", toolId: "seo-optimizer", preview: "Optimize SEO for my gaming channel", date: "Yesterday", createdAt: Date.now() - 90000000, messages: [] },
+  { id: "4", title: "Horror story narration", toolId: "script-writer", preview: "Create a horror story narration script with suspense hooks", date: "Yesterday", createdAt: Date.now() - 100000000, messages: [] },
+  { id: "5", title: "Productivity hacks short", toolId: "content-optimizer", preview: "Generate a full content package for productivity", date: "Mar 4", createdAt: Date.now() - 200000000, messages: [] },
+  { id: "6", title: "Blockchain explainer", toolId: "script-writer", preview: "Write an educational explainer script about blockchain", date: "Mar 3", createdAt: Date.now() - 300000000, messages: [] },
+  { id: "7", title: "Fitness transformation SEO", toolId: "seo-optimizer", preview: "Create a full SEO package for a fitness video", date: "Mar 2", createdAt: Date.now() - 400000000, messages: [] },
+  { id: "8", title: "Fantasy story illustrations", toolId: "image-generator", preview: "Design an illustration for a fantasy story video", date: "Mar 1", createdAt: Date.now() - 500000000, messages: [] },
 ];
 
 export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
@@ -51,6 +55,7 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
       toolId,
       date: getDateLabel(Date.now()),
       createdAt: Date.now(),
+      messages: [],
     };
     setHistory((prev) => [item, ...prev]);
     return id;
@@ -75,8 +80,16 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
     [history]
   );
 
+  const updateChatMessages = useCallback((id: string, messages: ChatMessage[]) => {
+    setHistory((prev) => prev.map((c) => (c.id === id ? { ...c, messages } : c)));
+  }, []);
+
+  const getChatById = useCallback((id: string) => {
+    return history.find((c) => c.id === id);
+  }, [history]);
+
   return (
-    <ChatHistoryContext.Provider value={{ history, addChat, renameChat, deleteChat, searchHistory }}>
+    <ChatHistoryContext.Provider value={{ history, addChat, renameChat, deleteChat, searchHistory, updateChatMessages, getChatById }}>
       {children}
     </ChatHistoryContext.Provider>
   );
