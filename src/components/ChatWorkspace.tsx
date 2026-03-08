@@ -177,7 +177,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `🎬 Starting video creation: "${videoTopic}" (${videoDuration}s, ${detectedVideoRatio})`,
+        content: `Starting video creation: "${videoTopic}" (${videoDuration}s, ${detectedVideoRatio})`,
         timestamp: new Date(),
         videoGeneration: {
           topic: videoTopic,
