@@ -36,7 +36,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }
   }, [messages, chatId, updateChatMessages]);
 
-  const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }) => {
+  const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, taskMode?: TaskMode) => {
     const userMsg: ChatMessageType = {
       id: Date.now().toString(),
       role: "user",
