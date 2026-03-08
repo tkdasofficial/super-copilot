@@ -131,9 +131,11 @@ const WebAppPreviewCard = ({ project }: Props) => {
     generateBuildSteps(project.framework, project.files, project.dependencies)
   );
   const [compileWarnings, setCompileWarnings] = useState<string[]>([]);
+  const [autoFixAttempts, setAutoFixAttempts] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const fullIframeRef = useRef<HTMLIFrameElement>(null);
   const compiledOnce = useRef(false);
+  const autoFixTriggered = useRef(false);
 
   const currentFiles = useMemo(() => {
     return project.files.map((f) => ({
@@ -146,6 +148,45 @@ const WebAppPreviewCard = ({ project }: Props) => {
   const advanceStep = useCallback((stepIdx: number, status: StepStatus) => {
     setBuildSteps(prev => prev.map((s, i) => i === stepIdx ? { ...s, status } : s));
   }, []);
+
+  // Auto-fix: retry compilation, adding a "fixing" step
+  const attemptAutoFix = useCallback(async (errorMsg: string) => {
+    if (autoFixAttempts >= MAX_AUTO_FIX_ATTEMPTS) return;
+    setAutoFixAttempts(prev => prev + 1);
+    setPhase("auto-fixing");
+
+    // Add an auto-fix step to the build steps
+    setBuildSteps(prev => {
+      const steps = prev.map(s => ({ ...s, status: "done" as StepStatus }));
+      steps.push({ label: `Auto-fixing: ${errorMsg.slice(0, 60)}...`, status: "in_progress" });
+      steps.push({ label: "Rebuilding preview", status: "pending" });
+      return steps;
+    });
+
+    await delay(400);
+
+    // Retry compilation — the backend now auto-fixes and always returns HTML
+    const result = await compileProject(
+      currentFiles,
+      project.framework,
+      project.dependencies,
+      project.entryPoint,
+    );
+
+    if (result.html) {
+      setBuildSteps(prev => prev.map(s => ({ ...s, status: "done" as StepStatus })));
+      setPreviewHTML(result.html);
+      setPhase("ready");
+      if (result.warnings?.length) {
+        setCompileWarnings(result.warnings);
+      }
+    } else {
+      setBuildSteps(prev => prev.map((s, i) =>
+        i === prev.length - 2 ? { ...s, status: "error" as StepStatus } : s
+      ));
+      setPhase("error");
+    }
+  }, [autoFixAttempts, currentFiles, project.framework, project.dependencies, project.entryPoint]);
 
   // Run backend compilation
   useEffect(() => {
@@ -173,7 +214,7 @@ const WebAppPreviewCard = ({ project }: Props) => {
         project.entryPoint,
       );
 
-      if (result.success && result.html) {
+      if (result.html) {
         advanceStep(compileIdx, "done");
 
         // Final step: building preview
@@ -188,14 +229,29 @@ const WebAppPreviewCard = ({ project }: Props) => {
           setCompileWarnings(result.warnings);
         }
       } else {
-        advanceStep(compileIdx, "error");
-        setPhase("error");
-        setCompileWarnings([result.error || "Compilation failed"]);
+        // Auto-fix attempt
+        await attemptAutoFix(result.error || "Compilation failed");
       }
     };
 
     run();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for runtime errors from iframe and auto-fix
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === "console" && e.data.level === "error" && !autoFixTriggered.current && phase === "ready") {
+        const msg = e.data.message || "";
+        // Only auto-fix for critical errors (syntax, reference, type errors)
+        if (/SyntaxError|ReferenceError|TypeError|Cannot read|is not defined|Unexpected token/.test(msg)) {
+          autoFixTriggered.current = true;
+          attemptAutoFix(msg);
+        }
+      }
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, [phase, attemptAutoFix]);
 
   // Re-compile with backend after edits
   const handleRecompile = useCallback(async () => {
