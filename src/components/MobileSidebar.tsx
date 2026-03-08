@@ -77,32 +77,6 @@ const MobileSidebar = ({ open, onClose, onNewChat, onSelectChat, isMainChat, cha
             <span>Chat</span>
           </button>
 
-          {/* AI Studios */}
-          <button
-            onClick={() => setStudiosOpen(!studiosOpen)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          >
-            {studiosOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-            <span>AI Studios</span>
-          </button>
-
-          {studiosOpen && (
-            <div className="pl-4 space-y-0.5">
-              {STUDIO_CATEGORIES.map((studio) => {
-                const Icon = studio.icon;
-                return (
-                  <button
-                    key={studio.id}
-                    onClick={() => { onNewChat(); onClose(); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-                  >
-                    <Icon className={`w-3.5 h-3.5 ${studio.color}`} />
-                    <span className="truncate">{studio.shortName}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         {chatHistory.length > 0 && (
