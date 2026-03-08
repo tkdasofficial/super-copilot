@@ -345,6 +345,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
       try {
         setThinkingPhase("working");
+        dispatchBgTask("file", { prompt: content, format: detectedFormat }, chatId || undefined).catch(() => {});
         const resp = await fetch(FILE_CREATOR_URL, {
           method: "POST",
           headers: {
