@@ -223,10 +223,10 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
     const rows = newMessages.map((m) => ({
       id: m.id.length < 36 ? crypto.randomUUID() : m.id,
       session_id: id,
-      role: m.role,
+      role: m.role as string,
       content: m.content,
       image_url: m.imageUrl || null,
-      metadata: buildMetadata(m),
+      metadata: buildMetadata(m) as any,
     }));
 
     supabase
