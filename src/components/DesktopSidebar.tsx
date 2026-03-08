@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { PenSquare, Search, MessageSquare, Grid3X3, Clock, Pencil, Trash2, Check, X } from "lucide-react";
+import { PenSquare, Search, MessageSquare, Pencil, Trash2, Check, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useChatHistory } from "@/context/ChatHistoryContext";
