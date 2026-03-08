@@ -66,7 +66,7 @@ const TaskModeSelector = ({ selectedMode, onModeChange }: Props) => {
       {isOpen && (
         <div
           ref={popupRef}
-          className="absolute bottom-full left-0 mb-2 w-52 bg-card border border-border rounded-xl shadow-lg overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 w-52 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200"
         >
           <div className="px-3 py-2 border-b border-border">
             <p className="text-xs font-medium text-muted-foreground">Select task mode</p>
