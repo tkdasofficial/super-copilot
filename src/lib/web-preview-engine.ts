@@ -76,25 +76,7 @@ export async function compileProject(
 }
 
 /**
- * Client-side fallback: builds preview HTML without backend compilation.
- * Uses the original approach with TypeScript stripping.
- */
-function clientSideFallback(
-  files: GeneratedFile[],
-  framework: string,
-  dependencies: Record<string, string>,
-): CompileResult {
-  try {
-    const html = buildPreviewHTML(files, framework, dependencies);
-    return { success: true, html, warnings: ["Used client-side fallback compiler"] };
-  } catch (err: any) {
-    return { success: false, error: err.message };
-  }
-}
-
-/**
- * Build a complete HTML string that can be used as iframe srcdoc
- * to preview a generated web app. (Client-side fallback)
+ * Client-side preview builder (kept as utility, not used for primary compilation).
  */
 export function buildPreviewHTML(
   files: GeneratedFile[],
