@@ -55,11 +55,13 @@ const App = () => (
               <Route path="/auth" element={<Navigate to="/login" replace />} />
 
               {/* Docs (public) */}
-              <Route path="/docs/terms" element={<Terms />} />
-              <Route path="/docs/privacy" element={<Privacy />} />
+              <Route path="/docs/terms-conditions" element={<Terms />} />
+              <Route path="/docs/privacy-policy" element={<Privacy />} />
               {/* Legacy redirects */}
-              <Route path="/terms" element={<Navigate to="/docs/terms" replace />} />
-              <Route path="/privacy" element={<Navigate to="/docs/privacy" replace />} />
+              <Route path="/terms" element={<Navigate to="/docs/terms-conditions" replace />} />
+              <Route path="/privacy" element={<Navigate to="/docs/privacy-policy" replace />} />
+              <Route path="/docs/terms" element={<Navigate to="/docs/terms-conditions" replace />} />
+              <Route path="/docs/privacy" element={<Navigate to="/docs/privacy-policy" replace />} />
 
               {/* App routes */}
               <Route path="/" element={<Navigate to="/app/new" replace />} />
