@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, type KeyboardEvent } from "react";
 import { ArrowUp, Paperclip, Mic, MicOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TaskModeSelector, { type TaskMode } from "./TaskModeSelector";
