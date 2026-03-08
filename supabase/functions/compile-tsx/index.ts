@@ -84,10 +84,12 @@ function extractExports(code: string): { defaultExport: string | null; namedExpo
 function stripForInline(code: string): string {
   let result = code;
 
-  // Remove imports (type + runtime)
+  // Remove imports (type + runtime, both normal and minified one-line output)
   result = result.replace(/^\s*import\s+type[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, "");
   result = result.replace(/^\s*import[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, "");
   result = result.replace(/^\s*import\s+['"][^'"]+['"];?\s*$/gm, "");
+  result = result.replace(/import\s+[\w*{}\s,]+\s+from\s+['"][^'"]+['"];?\s*/g, "");
+  result = result.replace(/import\s+['"][^'"]+['"];?\s*/g, "");
 
   // Keep named default declarations intact
   result = result.replace(/export\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/g, "function $1(");
