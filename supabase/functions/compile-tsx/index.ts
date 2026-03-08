@@ -1,23 +1,14 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import * as esbuild from "https://deno.land/x/esbuild@v0.20.2/wasm.js";
+
+// Sucrase: lightweight pure-JS TypeScript/JSX transpiler (no WASM, no Workers)
+import { transform } from "https://esm.sh/sucrase@3.35.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-let esbuildInitialized = false;
-
-async function ensureEsbuild() {
-  if (!esbuildInitialized) {
-    await esbuild.initialize({
-      wasmURL: "https://unpkg.com/esbuild-wasm@0.20.2/esbuild.wasm",
-    });
-    esbuildInitialized = true;
-  }
-}
 
 type ProjectFile = {
   path: string;
@@ -32,86 +23,68 @@ type CompileRequest = {
 };
 
 /**
- * Virtual filesystem plugin for esbuild.
- * Resolves internal project imports from the provided files array.
+ * Transpile a single file using sucrase.
+ * Handles TSX, JSX, TypeScript, and regular JS.
  */
-function virtualFsPlugin(files: ProjectFile[]): esbuild.Plugin {
-  const fileMap = new Map<string, string>();
-
-  // Build lookup map with normalized paths
-  for (const f of files) {
-    const normalized = f.path.replace(/^\.\//, "").replace(/^src\//, "");
-    fileMap.set(f.path, f.content);
-    fileMap.set(normalized, f.content);
-    // Also store without extension
-    const noExt = normalized.replace(/\.(tsx?|jsx?)$/, "");
-    fileMap.set(noExt, f.content);
+function transpileFile(file: ProjectFile): { code: string; error?: string } {
+  const ext = file.path.match(/\.(tsx?|jsx?)$/)?.[1] || "";
+  
+  // Determine transforms based on file extension
+  const transforms: Array<"typescript" | "jsx" | "imports"> = ["imports"];
+  if (ext === "tsx" || ext === "ts") transforms.unshift("typescript");
+  if (ext === "tsx" || ext === "jsx") transforms.push("jsx");
+  
+  // Skip non-JS files
+  if (!ext && !file.path.endsWith(".js")) {
+    return { code: file.content };
   }
 
-  return {
-    name: "virtual-fs",
-    setup(build) {
-      // Resolve external npm packages
-      build.onResolve({ filter: /^[^./]/ }, (args) => {
-        // Skip node_modules-style imports — mark as external
-        return { path: args.path, external: true };
-      });
-
-      // Resolve relative imports
-      build.onResolve({ filter: /^\./ }, (args) => {
-        const dir = args.importer
-          ? args.importer.replace(/\/[^/]+$/, "")
-          : "";
-        
-        const candidates = [
-          `${dir}/${args.path}`.replace(/^\//, ""),
-          `${dir}/${args.path}.tsx`.replace(/^\//, ""),
-          `${dir}/${args.path}.ts`.replace(/^\//, ""),
-          `${dir}/${args.path}.jsx`.replace(/^\//, ""),
-          `${dir}/${args.path}.js`.replace(/^\//, ""),
-          `${dir}/${args.path}/index.tsx`.replace(/^\//, ""),
-          `${dir}/${args.path}/index.ts`.replace(/^\//, ""),
-          args.path.replace(/^\.\//, ""),
-          args.path.replace(/^\.\//, "") + ".tsx",
-          args.path.replace(/^\.\//, "") + ".ts",
-          args.path.replace(/^\.\//, "") + ".jsx",
-          args.path.replace(/^\.\//, "") + ".js",
-        ];
-
-        for (const c of candidates) {
-          if (fileMap.has(c)) {
-            return { path: c, namespace: "virtual" };
-          }
-        }
-
-        // Try without src/ prefix
-        for (const c of candidates) {
-          const withoutSrc = c.replace(/^src\//, "");
-          if (fileMap.has(withoutSrc)) {
-            return { path: withoutSrc, namespace: "virtual" };
-          }
-        }
-
-        return { path: args.path, external: true };
-      });
-
-      // Load virtual files
-      build.onLoad({ filter: /.*/, namespace: "virtual" }, (args) => {
-        const content = fileMap.get(args.path);
-        if (content !== undefined) {
-          const ext = args.path.match(/\.(tsx?|jsx?)$/)?.[1] || "tsx";
-          const loader = ext === "tsx" || ext === "jsx" ? "tsx" :
-                         ext === "ts" ? "ts" : "js";
-          return { contents: content, loader: loader as esbuild.Loader };
-        }
-        return null;
-      });
-    },
-  };
+  try {
+    const result = transform(file.content, {
+      transforms,
+      jsxRuntime: "classic",
+      production: false,
+      filePath: file.path,
+    });
+    return { code: result.code };
+  } catch (err: any) {
+    return { code: "", error: `${file.path}: ${err.message}` };
+  }
 }
 
 /**
- * Find the entry point file from the project files.
+ * Strip import/export statements for inline execution.
+ * After sucrase converts them to require/module.exports,
+ * we transform those into our module system.
+ */
+function stripModuleSystem(code: string): string {
+  let result = code;
+  
+  // Remove require() calls (sucrase converts imports to require)
+  result = result.replace(/^(?:const|let|var)\s+.*?=\s*require\(["'].*?["']\);?\s*$/gm, "");
+  result = result.replace(/^require\(["'].*?["']\);?\s*$/gm, "");
+  
+  // Remove Object.defineProperty for __esModule
+  result = result.replace(/^Object\.defineProperty\(exports.*?\);?\s*$/gm, "");
+  
+  // Convert exports.X = X to just keep the declaration
+  result = result.replace(/^exports\.(\w+)\s*=\s*(\w+);?\s*$/gm, "");
+  result = result.replace(/^exports\.default\s*=\s*(\w+);?\s*$/gm, "");
+  
+  // Remove "use strict"
+  result = result.replace(/^"use strict";?\s*$/gm, "");
+  
+  // Handle module.exports = X
+  result = result.replace(/^module\.exports\s*=\s*(\w+);?\s*$/gm, "");
+  
+  // Handle exports.default = Component pattern
+  result = result.replace(/^exports\.default\s*=\s*/gm, "");
+  
+  return result.trim();
+}
+
+/**
+ * Find the App component entry point.
  */
 function findEntryPoint(files: ProjectFile[], framework: string, hint?: string): string | null {
   if (hint) {
@@ -119,32 +92,28 @@ function findEntryPoint(files: ProjectFile[], framework: string, hint?: string):
     if (found) return found.path;
   }
 
-  // React projects: look for App.tsx/jsx or main.tsx/jsx
-  const reactEntries = [
+  const entries = [
     "src/App.tsx", "src/App.jsx", "App.tsx", "App.jsx",
     "src/main.tsx", "src/main.jsx", "main.tsx", "main.jsx",
     "src/index.tsx", "src/index.jsx", "index.tsx", "index.jsx",
   ];
 
-  for (const entry of reactEntries) {
+  for (const entry of entries) {
     if (files.find(f => f.path === entry)) return entry;
   }
 
-  // Vanilla: look for index.html or main.js
   if (framework === "vanilla-html") {
-    const vanillaEntries = ["index.html", "src/index.html", "main.js", "src/main.js", "index.js", "script.js"];
+    const vanillaEntries = ["index.html", "src/index.html", "main.js", "script.js"];
     for (const entry of vanillaEntries) {
       if (files.find(f => f.path === entry)) return entry;
     }
   }
 
-  // Fallback: first tsx/jsx/ts/js file
-  const jsFile = files.find(f => /\.(tsx?|jsx?)$/.test(f.path));
-  return jsFile?.path || null;
+  return files.find(f => /\.(tsx?|jsx?)$/.test(f.path))?.path || null;
 }
 
 /**
- * Build import map for external dependencies.
+ * Build the import map for external dependencies.
  */
 function buildImportMap(dependencies: Record<string, string>): Record<string, string> {
   const map: Record<string, string> = {
@@ -169,77 +138,25 @@ function buildImportMap(dependencies: Record<string, string>): Record<string, st
 }
 
 /**
- * Generate the final preview HTML from compiled code.
+ * Extract exported component/function names from transpiled code.
  */
-function generatePreviewHTML(
-  compiledJS: string,
-  cssContent: string,
-  importMap: Record<string, string>,
-  framework: string,
-): string {
-  const importMapJSON = JSON.stringify({ imports: importMap }, null, 2);
-
-  if (framework === "vanilla-html") {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview</title>
-  <script src="https://cdn.tailwindcss.com"><\/script>
-  <style>${cssContent}</style>
-</head>
-<body>
-  <script>${compiledJS}<\/script>
-  ${injectConsoleCapture()}
-</body>
-</html>`;
-  }
-
-  // React-based frameworks
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Preview</title>
-  <script src="https://cdn.tailwindcss.com"><\/script>
-  <script type="importmap">
-  ${importMapJSON}
-  <\/script>
-  <style>${cssContent}</style>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="module">
-    import React from 'react';
-    import { createRoot } from 'react-dom/client';
-    
-    ${compiledJS}
-    
-    // Find and render the App component
-    const AppComponent = typeof App !== 'undefined' ? App :
-                         typeof default_1 !== 'undefined' ? default_1 :
-                         () => React.createElement('div', {
-                           style: { padding: '2rem', textAlign: 'center', fontFamily: 'system-ui' }
-                         }, 
-                           React.createElement('h2', null, '⚠ No App component found'),
-                           React.createElement('p', { style: { color: '#888' } }, 'Make sure your project exports an App component.')
-                         );
-    
-    try {
-      const root = createRoot(document.getElementById('root'));
-      root.render(React.createElement(AppComponent));
-    } catch (err) {
-      document.getElementById('root').innerHTML = 
-        '<div style="padding:2rem;color:#f38ba8;font-family:monospace">' +
-        '<h3>Render Error</h3><pre>' + (err.stack || err.message) + '</pre></div>';
-      console.error(err);
+function extractExportedNames(originalCode: string): string[] {
+  const names: string[] = [];
+  const patterns = [
+    /export\s+(?:default\s+)?function\s+(\w+)/g,
+    /export\s+(?:default\s+)?class\s+(\w+)/g,
+    /export\s+(?:const|let|var)\s+(\w+)/g,
+    /export\s+default\s+(\w+)/g,
+  ];
+  for (const pat of patterns) {
+    let m;
+    while ((m = pat.exec(originalCode)) !== null) {
+      if (m[1] && m[1][0] === m[1][0].toUpperCase()) {
+        names.push(m[1]);
+      }
     }
-  <\/script>
-  ${injectConsoleCapture()}
-</body>
-</html>`;
+  }
+  return [...new Set(names)];
 }
 
 function injectConsoleCapture(): string {
@@ -295,15 +212,24 @@ serve(async (req: Request) => {
       );
     }
 
-    // For vanilla HTML, skip esbuild — just inline everything
+    // ─── Vanilla HTML ───
     if (framework === "vanilla-html") {
       const htmlFile = files.find(f => f.path.endsWith(".html"));
       const cssFiles = files.filter(f => f.path.endsWith(".css"));
       const jsFiles = files.filter(f => /\.(js|ts)$/.test(f.path));
-      const cssContent = cssFiles.map(f => f.content).join("\n");
-      const jsContent = jsFiles.map(f => f.content).join("\n");
+      
+      // Transpile JS/TS files
+      const transpiledJS: string[] = [];
+      const errors: string[] = [];
+      for (const js of jsFiles) {
+        const result = transpileFile(js);
+        if (result.error) errors.push(result.error);
+        else transpiledJS.push(result.code);
+      }
 
+      const cssContent = cssFiles.map(f => f.content).join("\n");
       let html: string;
+
       if (htmlFile) {
         html = htmlFile.content;
         // Inline CSS
@@ -311,97 +237,133 @@ serve(async (req: Request) => {
           const pat = new RegExp(`<link[^>]*href=["'](?:\\.\\/)?${css.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*>`, "gi");
           html = html.replace(pat, `<style>${css.content}</style>`);
         }
-        // Inline JS
-        for (const js of jsFiles) {
+        // Inline transpiled JS
+        for (let i = 0; i < jsFiles.length; i++) {
+          const js = jsFiles[i];
           const pat = new RegExp(`<script[^>]*src=["'](?:\\.\\/)?${js.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*>\\s*</script>`, "gi");
-          html = html.replace(pat, `<script>${js.content}<\/script>`);
+          html = html.replace(pat, `<script>${transpiledJS[i] || ""}<\/script>`);
         }
-        // Add remaining CSS/JS if not already inlined
         if (!html.includes("<style>") && cssContent) {
           html = html.replace("</head>", `<style>${cssContent}</style>\n</head>`);
         }
       } else {
-        html = generatePreviewHTML(jsContent, cssContent, {}, "vanilla-html");
+        html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><script src="https://cdn.tailwindcss.com"><\/script><style>${cssContent}</style></head><body><script>${transpiledJS.join("\n")}<\/script></body></html>`;
+      }
+
+      // Inject console capture
+      if (html.includes("</body>")) {
+        html = html.replace("</body>", injectConsoleCapture() + "\n</body>");
+      } else {
+        html += injectConsoleCapture();
       }
 
       return new Response(
-        JSON.stringify({
-          success: true,
-          html: html.includes("__err") ? html : html.replace("</body>", injectConsoleCapture() + "\n</body>"),
-          compiledFiles: files.length,
-          bundleSize: html.length,
-        }),
+        JSON.stringify({ success: true, html, compiledFiles: files.length, bundleSize: html.length, errors, warnings: [] }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // React/Next.js compilation with esbuild
-    await ensureEsbuild();
-
+    // ─── React / Next.js ───
     const entry = findEntryPoint(files, framework, entryPoint);
     if (!entry) {
       return new Response(
-        JSON.stringify({ error: "No entry point found. Include App.tsx, main.tsx, or index.tsx." }),
+        JSON.stringify({ error: "No entry point found" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Collect CSS
-    const cssContent = files
-      .filter(f => f.path.endsWith(".css"))
-      .map(f => f.content)
-      .join("\n");
+    const cssContent = files.filter(f => f.path.endsWith(".css")).map(f => f.content).join("\n");
+    const moduleFiles = files.filter(f => /\.(tsx?|jsx?)$/.test(f.path));
+    
+    // Transpile all module files
+    const compiledModules: Array<{ path: string; code: string; exports: string[] }> = [];
+    const errors: string[] = [];
+    const warnings: string[] = [];
 
-    // Build with esbuild
-    const result = await esbuild.build({
-      stdin: {
-        contents: files.find(f => f.path === entry)!.content,
-        loader: entry.endsWith(".tsx") ? "tsx" : entry.endsWith(".jsx") ? "jsx" : "ts",
-        resolveDir: ".",
-        sourcefile: entry,
-      },
-      plugins: [virtualFsPlugin(files)],
-      bundle: true,
-      format: "esm",
-      jsx: "automatic",
-      jsxImportSource: "react",
-      target: "es2020",
-      minify: false,
-      write: false,
-      external: [
-        "react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime",
-        "react-router-dom",
-        ...Object.keys(dependencies),
-      ],
-      treeShaking: true,
-      logLevel: "silent",
-    });
-
-    const compiledJS = result.outputFiles?.[0]?.text || "";
-    const warnings = result.warnings?.map(w => w.text) || [];
-    const errors = result.errors?.map(e => e.text) || [];
-
-    if (errors.length > 0) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Compilation failed",
-          errors,
-          warnings,
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    for (const file of moduleFiles) {
+      const result = transpileFile(file);
+      if (result.error) {
+        errors.push(result.error);
+        warnings.push(`Failed to compile ${file.path}`);
+        continue;
+      }
+      
+      const exports = extractExportedNames(file.content);
+      const strippedCode = stripModuleSystem(result.code);
+      compiledModules.push({ path: file.path, code: strippedCode, exports });
     }
 
+    // Find the app entry module
+    const appModule = compiledModules.find(m => m.path === entry);
+    const otherModules = compiledModules.filter(m => m.path !== entry && !m.path.includes("main."));
+
+    // Build the component setup code (non-entry modules wrapped in IIFEs)
+    const componentSetup = otherModules.map(m => {
+      const varName = m.path
+        .replace(/^src\//, "")
+        .replace(/\.(tsx?|jsx?)$/, "")
+        .replace(/[\/\-\.]/g, "_");
+      const exportList = m.exports.length > 0 ? m.exports.join(", ") : "";
+      return `
+// ── ${m.path} ──
+const __mod_${varName} = (function() {
+  ${m.code}
+  ${exportList ? `return { ${exportList} };` : "return {};"}
+})();`;
+    }).join("\n");
+
     const importMap = buildImportMap(dependencies);
-    const html = generatePreviewHTML(compiledJS, cssContent, importMap, framework);
+    const importMapJSON = JSON.stringify({ imports: importMap }, null, 2);
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview</title>
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <script type="importmap">
+  ${importMapJSON}
+  <\/script>
+  <style>${cssContent}</style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    import React, { useState, useEffect, useCallback, useRef, useMemo, useContext, createContext, useReducer, forwardRef, memo, Fragment, Suspense, lazy } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { HashRouter, Routes, Route, Link, NavLink, useNavigate, useParams, useLocation, Navigate, Outlet, useSearchParams } from 'react-router-dom';
+
+    ${componentSetup}
+
+    ${appModule?.code || "function App() { return React.createElement('div', {style:{padding:'2rem',textAlign:'center'}}, 'No App component found'); }"}
+
+    const AppComponent = typeof App !== 'undefined' ? App :
+                         typeof _default !== 'undefined' ? _default :
+                         () => React.createElement('div', {style:{padding:'2rem',textAlign:'center',fontFamily:'system-ui'}},
+                           React.createElement('h2', null, '⚠ No App component found'));
+
+    try {
+      const root = createRoot(document.getElementById('root'));
+      root.render(React.createElement(AppComponent));
+    } catch (err) {
+      document.getElementById('root').innerHTML =
+        '<div style="padding:2rem;color:#f38ba8;font-family:monospace"><h3>Render Error</h3><pre>' +
+        (err.stack || err.message) + '</pre></div>';
+      console.error(err);
+    }
+  <\/script>
+  ${injectConsoleCapture()}
+</body>
+</html>`;
 
     return new Response(
       JSON.stringify({
-        success: true,
+        success: errors.length === 0,
         html,
-        compiledFiles: files.length,
-        bundleSize: compiledJS.length,
+        compiledFiles: compiledModules.length,
+        bundleSize: html.length,
+        errors: errors.length > 0 ? errors : undefined,
         warnings,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -409,11 +371,7 @@ serve(async (req: Request) => {
   } catch (err: any) {
     console.error("Compile error:", err);
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: err.message || "Internal compilation error",
-        stack: err.stack,
-      }),
+      JSON.stringify({ success: false, error: err.message || "Internal compilation error" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
