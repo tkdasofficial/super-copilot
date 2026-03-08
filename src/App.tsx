@@ -32,7 +32,7 @@ const queryClient = new QueryClient();
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-[100dvh] bg-background flex items-center justify-center"><div className="w-6 h-6 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" /></div>;
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
 
@@ -45,11 +45,21 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Public */}
-              <Route path="/auth" element={<Auth />} />
+              {/* Auth */}
+              <Route path="/login" element={<Auth />} />
+              <Route path="/signup" element={<Auth />} />
+              <Route path="/forgot-password" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/privacy" element={<Privacy />} />
+
+              {/* Legacy redirect */}
+              <Route path="/auth" element={<Navigate to="/login" replace />} />
+
+              {/* Docs (public) */}
+              <Route path="/docs/terms" element={<Terms />} />
+              <Route path="/docs/privacy" element={<Privacy />} />
+              {/* Legacy redirects */}
+              <Route path="/terms" element={<Navigate to="/docs/terms" replace />} />
+              <Route path="/privacy" element={<Navigate to="/docs/privacy" replace />} />
 
               {/* App routes */}
               <Route path="/" element={<Navigate to="/app/new" replace />} />
