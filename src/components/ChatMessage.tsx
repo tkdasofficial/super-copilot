@@ -49,6 +49,11 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               aspectRatio={message.videoGeneration.aspectRatio}
             />
           )}
+          {message.videoEdit && (
+            <VideoEditorCard
+              userMessage={message.videoEdit.userMessage}
+            />
+          )}
         </div>
       )}
     </div>

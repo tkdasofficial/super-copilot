@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.google-tts]
 verify_jwt = false
+
+[functions.video-editor]
+verify_jwt = false
