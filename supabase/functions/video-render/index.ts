@@ -17,9 +17,38 @@ const MODEL_ENDPOINTS: Record<string, string> = {
   mystic: "mystic", flux: "flux-dev", "flux-pro": "flux-pro-v1-1",
 };
 
+// ── Gather all Gemini keys for fallback ──
+function getGeminiKeys(): string[] {
+  const keys: string[] = [];
+  for (const suffix of ["", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"]) {
+    const k = Deno.env.get(`GEMINI_API_KEY${suffix}`);
+    if (k) keys.push(k);
+  }
+  return keys;
+}
+
+// ── Call Gemini with key fallback (non-streaming) ──
+async function callGemini(body: any): Promise<any> {
+  const keys = getGeminiKeys();
+  let lastError = "";
+  for (const key of keys) {
+    try {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+      );
+      if (r.ok) return await r.json();
+      lastError = await r.text();
+      console.warn(`Gemini key failed (${r.status}):`, lastError.slice(0, 200));
+      if (r.status !== 429 && r.status !== 503 && r.status !== 500) break;
+    } catch (e) { lastError = String(e); }
+  }
+  throw new Error(`All Gemini keys failed: ${lastError.slice(0, 300)}`);
+}
+
 // ── Generate script via Gemini ──
 async function generateScript(
-  geminiKey: string, topic: string, duration: number, aspectRatio: string, style: string
+  topic: string, duration: number, aspectRatio: string, style: string
 ): Promise<any> {
   const sceneCount = Math.max(3, Math.min(12, Math.round(duration / 5)));
   const systemPrompt = `You are an expert short-form video scriptwriter. Return ONLY valid JSON.
@@ -27,20 +56,11 @@ Generate a script with exactly ${sceneCount} scenes for a ${duration}-second vid
 Return: {"title":"...","scenes":[{"sceneNumber":1,"narration":"...","imagePrompt":"Detailed 50+ word photorealistic prompt...","duration":5,"transition":"fade"}]}
 Rules: natural narration, detailed image prompts with visual consistency, hook opening, memorable close. Transitions: fade/cut/zoom/slide.`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: "user", parts: [{ text: `Create a ${duration}s video about: ${topic}` }] }],
-        generationConfig: { temperature: 0.8, responseMimeType: "application/json" },
-      }),
-    }
-  );
-  if (!res.ok) throw new Error(`Gemini script error [${res.status}]`);
-  const data = await res.json();
+  const data = await callGemini({
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: "user", parts: [{ text: `Create a ${duration}s video about: ${topic}` }] }],
+    generationConfig: { temperature: 0.8, responseMimeType: "application/json" },
+  });
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("No script generated");
   const parsed = JSON.parse(text);
@@ -70,29 +90,20 @@ async function generateTTS(ttsKey: string, text: string): Promise<string> {
   return data.audioContent; // base64 MP3
 }
 
-// ── Enhance prompt via Gemini ──
-async function enhancePrompt(geminiKey: string, prompt: string): Promise<string> {
+// ── Enhance prompt via Gemini (with fallback) ──
+async function enhancePrompt(prompt: string): Promise<string> {
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: "Enhance this image prompt for AI generation. Include subject, composition, lighting, color, mood, camera angle. Output ONLY the enhanced text under 200 words." }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-        }),
-      }
-    );
-    if (!res.ok) return prompt;
-    const data = await res.json();
+    const data = await callGemini({
+      system_instruction: { parts: [{ text: "Enhance this image prompt for AI generation. Include subject, composition, lighting, color, mood, camera angle. Output ONLY the enhanced text under 200 words." }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
     return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || prompt;
   } catch { return prompt; }
 }
 
-// ── Generate image via Freepik ──
-async function generateImage(freepikKey: string, geminiKey: string, prompt: string, aspectRatio: string): Promise<string> {
-  const enhanced = geminiKey ? await enhancePrompt(geminiKey, prompt) : prompt;
+// ── Generate image via Freepik (Gemini enhances prompt via fallback) ──
+async function generateImage(freepikKey: string, prompt: string, aspectRatio: string): Promise<string> {
+  const enhanced = await enhancePrompt(prompt);
   const freepikAR = ASPECT_RATIOS[aspectRatio] || "square_1_1";
   const endpoint = MODEL_ENDPOINTS["flux"];
 
@@ -150,11 +161,10 @@ serve(async (req) => {
   try {
     const { action, topic, duration = 45, aspect_ratio = "9:16", style = "cinematic", editOps, projectState } = await req.json();
 
-    const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
     const TTS_KEY = Deno.env.get("GOOGLE_TTS_API_KEY");
     const FREEPIK_KEY = Deno.env.get("FREEPIK_API_KEY");
 
-    if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY not configured");
+    if (getGeminiKeys().length === 0) throw new Error("No Gemini API keys configured");
     if (!FREEPIK_KEY) throw new Error("FREEPIK_API_KEY not configured");
 
     // ── STREAM progress via SSE ──
@@ -172,7 +182,7 @@ serve(async (req) => {
           // ── Full generation pipeline ──
           await sendEvent("task_update", { id: "script", status: "working", label: "Write Script" });
 
-          const script = await generateScript(GEMINI_KEY, topic, duration, aspect_ratio, style);
+          const script = await generateScript(topic, duration, aspect_ratio, style);
 
           await sendEvent("task_update", { id: "script", status: "done", label: "Write Script", detail: `${script.scenes.length} scenes` });
           await sendEvent("script_ready", { script });
@@ -192,7 +202,7 @@ serve(async (req) => {
             await sendEvent("task_update", { id: `img-${i}`, status: "working" });
             let imageUrl: string;
             try {
-              imageUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, scene.imagePrompt, aspect_ratio);
+              imageUrl = await generateImage(FREEPIK_KEY, scene.imagePrompt, aspect_ratio);
               await sendEvent("task_update", { id: `img-${i}`, status: "done", detail: "Ready" });
             } catch (e: any) {
               await sendEvent("task_update", { id: `img-${i}`, status: "error", detail: e.message });
@@ -288,7 +298,7 @@ serve(async (req) => {
 
                   try {
                     const newPrompt = issue.fixParams?.newPrompt || scenes[idx].imagePrompt;
-                    const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, newPrompt + ". Ensure consistent lighting, color palette, and professional quality.", aspect_ratio);
+                    const newUrl = await generateImage(FREEPIK_KEY, newPrompt + ". Ensure consistent lighting, color palette, and professional quality.", aspect_ratio);
                     scenes[idx].imageUrl = newUrl;
                     await sendEvent("task_update", { id: `fix-${idx}`, status: "done", detail: "Regenerated" });
                   } catch (e: any) {
@@ -325,7 +335,7 @@ serve(async (req) => {
               const idx = op.sceneIndex ?? 0;
               await sendEvent("task_update", { id: `regen-img-${i}`, status: "working", label: `Regenerate Scene ${idx + 1} Image` });
               try {
-                const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, op.params.newPrompt, projectState.aspectRatio || "9:16");
+                const newUrl = await generateImage(FREEPIK_KEY, op.params.newPrompt, projectState.aspectRatio || "9:16");
                 op._result = { imageUrl: newUrl };
                 await sendEvent("task_update", { id: `regen-img-${i}`, status: "done" });
               } catch (e: any) {
@@ -353,7 +363,7 @@ serve(async (req) => {
 
           if (imagePrompt) {
             await sendEvent("task_update", { id: "regen-img", status: "working", label: "Regenerate Image" });
-            const url = await generateImage(FREEPIK_KEY, GEMINI_KEY, imagePrompt, aspect_ratio);
+            const url = await generateImage(FREEPIK_KEY, imagePrompt, aspect_ratio);
             await sendEvent("task_update", { id: "regen-img", status: "done" });
             await sendEvent("scene_asset", { sceneIndex, type: "image", imageUrl: url });
           }
