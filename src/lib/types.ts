@@ -13,6 +13,18 @@ export type AITool = {
   samplePrompts: SamplePrompt[];
 };
 
+export type StockVideo = {
+  id: number;
+  url: string;
+  image: string;
+  duration: number;
+  width: number;
+  height: number;
+  user: { name: string; url: string };
+  videoUrl: string;
+  previewUrl: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -20,4 +32,5 @@ export type ChatMessage = {
   timestamp: Date;
   toolId?: string;
   imageUrl?: string;
+  videos?: StockVideo[];
 };
