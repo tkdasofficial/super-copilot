@@ -404,6 +404,50 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     setIsTyping(false);
   }, [tool, chatId, addChat, messages, updateChatMessages]);
 
+  const handleZipUpload = useCallback(async (file: File) => {
+    const userMsg: ChatMessageType = {
+      id: Date.now().toString(),
+      role: "user",
+      content: `Uploaded ZIP file: ${file.name}`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setIsTyping(true);
+    setThinkingPhase("thinking");
+
+    if (!chatId) {
+      const title = `ZIP: ${file.name}`;
+      const newId = addChat(title, `Uploaded ${file.name}`, tool?.id);
+      setChatId(newId);
+    }
+
+    try {
+      const analysis = await analyzeZip(file);
+      setMessages((prev) => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `Analyzed **${analysis.fileName}** — ${analysis.totalFiles} files in ${analysis.totalDirectories} folders (${formatBytes(analysis.totalSize)} total, ${analysis.compressionRatio}% compression). Top file types: ${Object.entries(analysis.fileTypes).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([ext, n]) => `.${ext} (${n})`).join(", ")}.`,
+        timestamp: new Date(),
+        zipAnalysis: analysis,
+      }]);
+    } catch (e: any) {
+      setMessages((prev) => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `Failed to extract ZIP file: ${e.message}`,
+        timestamp: new Date(),
+      }]);
+    }
+    setIsTyping(false);
+  }, [chatId, addChat, tool]);
+
+  function formatBytes(bytes: number): string {
+    if (bytes === 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
+  }
+
   const hasMessages = messages.length > 0;
   const title = tool ? tool.shortName : "Super Copilot";
 
