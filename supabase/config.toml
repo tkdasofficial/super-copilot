@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.code-generator]
 verify_jwt = false
+
+[functions.compile-tsx]
+verify_jwt = false
