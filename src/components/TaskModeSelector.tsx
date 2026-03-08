@@ -65,14 +65,22 @@ const TaskModeSelector = ({ selectedMode, onModeChange }: Props) => {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-8 h-8 rounded-full flex items-center justify-center border transition-colors",
+          "h-8 rounded-full flex items-center justify-center border transition-colors gap-1.5",
+          selectedMode === "general" ? "w-8" : "px-2.5",
           isOpen
             ? "bg-foreground text-background border-foreground"
             : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
         )}
         title={`Mode: ${currentMode.label}`}
       >
-        <Plus className={cn("w-[18px] h-[18px] transition-transform", isOpen && "rotate-45")} />
+        {selectedMode === "general" ? (
+          <Plus className={cn("w-[18px] h-[18px] transition-transform", isOpen && "rotate-45")} />
+        ) : (
+          <>
+            <currentMode.icon className="w-3.5 h-3.5 shrink-0" />
+            <span className="text-xs font-medium leading-none">{currentMode.label}</span>
+          </>
+        )}
       </button>
 
       {isOpen &&
