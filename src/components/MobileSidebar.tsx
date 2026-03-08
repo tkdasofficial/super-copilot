@@ -1,8 +1,9 @@
 import { cn } from "@/lib/utils";
-import { X, PenSquare, MessageSquare, Pencil, Trash2, Check } from "lucide-react";
+import { X, PenSquare, MessageSquare, Pencil, Trash2, Check, ChevronDown, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useChatHistory } from "@/context/ChatHistoryContext";
+import { STUDIO_CATEGORIES } from "@/lib/workflow-presets";
 import logo from "@/assets/logo.svg";
 
 type Props = {
@@ -19,6 +20,7 @@ const MobileSidebar = ({ open, onClose, onNewChat, onSelectChat, isMainChat, cha
   const { renameChat, deleteChat } = useChatHistory();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [studiosOpen, setStudiosOpen] = useState(false);
 
   const startRename = (id: string, title: string) => {
     setEditingId(id);
@@ -74,6 +76,33 @@ const MobileSidebar = ({ open, onClose, onNewChat, onSelectChat, isMainChat, cha
             <MessageSquare className="w-4 h-4" />
             <span>Chat</span>
           </button>
+
+          {/* AI Studios */}
+          <button
+            onClick={() => setStudiosOpen(!studiosOpen)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+          >
+            {studiosOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            <span>AI Studios</span>
+          </button>
+
+          {studiosOpen && (
+            <div className="pl-4 space-y-0.5">
+              {STUDIO_CATEGORIES.map((studio) => {
+                const Icon = studio.icon;
+                return (
+                  <button
+                    key={studio.id}
+                    onClick={() => { onNewChat(); onClose(); }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                  >
+                    <Icon className={`w-3.5 h-3.5 ${studio.color}`} />
+                    <span className="truncate">{studio.shortName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {chatHistory.length > 0 && (
