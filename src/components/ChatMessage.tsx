@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import type { ChatMessage as ChatMessageType, StockVideo } from "@/lib/types";
-import { Copy, Check, Play, ExternalLink, Download, Volume2, VolumeX, ThumbsUp, ThumbsDown, Flag, RotateCcw } from "lucide-react";
+import { Copy, Check, Play, ExternalLink, Download, Volume2, VolumeX, ThumbsUp, ThumbsDown, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { useToast } from "@/hooks/use-toast";
@@ -41,46 +41,136 @@ const proseClasses = [
 const NORMAL_CPS = 50;
 const TASK_CPS = 200;
 
-/** Detect if content is a "task" — long structured output like scripts, blogs, code */
-const isTaskContent = (content: string): boolean => {
-  if (content.length < 300) return false;
-  const taskPatterns = /```|#{1,3}\s|(\d+\.\s)|(\*\*[^*]+\*\*.*\n)/;
-  return taskPatterns.test(content);
+/* ── Content splitter ──
+   Splits AI content into segments: [text, task, text]
+   "task" = the main structured body (story, code, blog, list, etc.)
+   Intro/outro are the short plain text before/after.
+*/
+type Segment = { type: "text" | "task"; content: string };
+
+const splitContent = (raw: string): Segment[] => {
+  const lines = raw.split("\n");
+  const totalLen = raw.length;
+
+  // Short messages → all text, no card
+  if (totalLen < 250) return [{ type: "text", content: raw }];
+
+  // Find where "task" body starts: first heading, code fence, numbered list, or bold line after intro
+  let taskStart = -1;
+  let taskEnd = lines.length;
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i].trim();
+    if (taskStart === -1) {
+      // Detect task body start
+      if (/^#{1,3}\s/.test(l) || /^```/.test(l) || /^\d+\.\s/.test(l) || /^\*\*[^*]+\*\*/.test(l) || /^[-*]\s/.test(l)) {
+        // Only treat as task if there's enough content after
+        const remaining = lines.slice(i).join("\n").length;
+        if (remaining > 150) {
+          taskStart = i;
+        }
+      }
+    }
+  }
+
+  // No task body found → plain text
+  if (taskStart === -1) return [{ type: "text", content: raw }];
+
+  // Find task end: scan from bottom for a short plain closing paragraph
+  for (let i = lines.length - 1; i > taskStart; i--) {
+    const l = lines[i].trim();
+    if (l === "") continue;
+    // If the last non-empty lines are short plain text (no markdown markers), they're the outro
+    if (!/^#{1,3}\s/.test(l) && !/^```/.test(l) && !/^\d+\.\s/.test(l) && !/^[-*]\s/.test(l) && !/^\*\*/.test(l) && l.length < 200) {
+      // Check if this is truly a closing remark (short paragraph block)
+      let outroStart = i;
+      // Walk up to find the start of the outro block (consecutive short plain lines)
+      for (let j = i - 1; j > taskStart; j--) {
+        const lj = lines[j].trim();
+        if (lj === "") { outroStart = j + 1; break; }
+        if (/^#{1,3}\s/.test(lj) || /^```/.test(lj) || /^\d+\.\s/.test(lj) || /^[-*]\s/.test(lj) || /^\*\*/.test(lj)) {
+          outroStart = j + 1;
+          break;
+        }
+        outroStart = j;
+      }
+      const outroText = lines.slice(outroStart).join("\n").trim();
+      if (outroText.length > 0 && outroText.length < 300) {
+        taskEnd = outroStart;
+      }
+      break;
+    } else {
+      break; // last content is structured → no outro
+    }
+  }
+
+  const segments: Segment[] = [];
+  const preText = lines.slice(0, taskStart).join("\n").trim();
+  const taskText = lines.slice(taskStart, taskEnd).join("\n").trim();
+  const postText = lines.slice(taskEnd).join("\n").trim();
+
+  if (preText) segments.push({ type: "text", content: preText });
+  if (taskText) segments.push({ type: "task", content: taskText });
+  if (postText) segments.push({ type: "text", content: postText });
+
+  return segments.length > 0 ? segments : [{ type: "text", content: raw }];
 };
 
-const useTypewriter = (text: string, enabled: boolean, cps: number) => {
-  const [displayed, setDisplayed] = useState(enabled ? "" : text);
-  const [done, setDone] = useState(!enabled);
-  const rafRef = useRef<number>(0);
-  const startRef = useRef<number>(0);
-  const enabledRef = useRef(enabled);
+/* ── Multi-segment typewriter ──
+   Animates segments sequentially: text@50cps → task@200cps → text@50cps
+*/
+const useSegmentedTypewriter = (segments: Segment[], enabled: boolean) => {
+  const [charCounts, setCharCounts] = useState<number[]>(() =>
+    enabled ? segments.map(() => 0) : segments.map((s) => s.content.length)
+  );
+  const [allDone, setAllDone] = useState(!enabled);
+  const rafRef = useRef(0);
+  const startRef = useRef(0);
+
+  // Precompute timing: each segment starts after the previous finishes
+  const timing = useMemo(() => {
+    let offset = 0;
+    return segments.map((s) => {
+      const cps = s.type === "task" ? TASK_CPS : NORMAL_CPS;
+      const duration = s.content.length / cps;
+      const start = offset;
+      offset += duration;
+      return { cps, duration, start, len: s.content.length };
+    });
+  }, [segments]);
 
   useEffect(() => {
-    enabledRef.current = enabled;
     if (!enabled) {
-      setDisplayed(text);
-      setDone(true);
+      setCharCounts(segments.map((s) => s.content.length));
+      setAllDone(true);
       return;
     }
-    setDisplayed("");
-    setDone(false);
+    setCharCounts(segments.map(() => 0));
+    setAllDone(false);
     startRef.current = performance.now();
+
+    const totalDuration = timing.reduce((a, t) => a + t.duration, 0);
 
     const animate = (now: number) => {
       const elapsed = (now - startRef.current) / 1000;
-      const chars = Math.min(Math.floor(elapsed * cps), text.length);
-      setDisplayed(text.slice(0, chars));
-      if (chars < text.length) {
+      const counts = timing.map((t) => {
+        if (elapsed < t.start) return 0;
+        const segElapsed = elapsed - t.start;
+        return Math.min(Math.floor(segElapsed * t.cps), t.len);
+      });
+      setCharCounts(counts);
+      if (elapsed < totalDuration) {
         rafRef.current = requestAnimationFrame(animate);
       } else {
-        setDone(true);
+        setCharCounts(segments.map((s) => s.content.length));
+        setAllDone(true);
       }
     };
     rafRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [text, enabled, cps]);
+  }, [segments, enabled, timing]);
 
-  return { displayed, done };
+  return { charCounts, allDone };
 };
 
 const ChatMessage = ({ message, isNew = false }: Props) => {
@@ -92,10 +182,10 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
   const { toast } = useToast();
 
   const shouldAnimate = isNew && !isUser;
-  const isTask = isTaskContent(message.content);
-  const cps = isTask ? TASK_CPS : NORMAL_CPS;
-  const { displayed: displayedContent, done: typingDone } = useTypewriter(message.content, shouldAnimate, cps);
-  const size = getMessageSize(displayedContent);
+  const segments = useMemo(() => splitContent(message.content), [message.content]);
+  const { charCounts, allDone: typingDone } = useSegmentedTypewriter(segments, shouldAnimate);
+
+  const size = getMessageSize(message.content);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -113,7 +203,6 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
       toast({ title: "Not supported", description: "Text-to-speech is not supported in this browser.", variant: "destructive" });
       return;
     }
-    // Strip markdown for cleaner speech
     const plainText = message.content
       .replace(/```[\s\S]*?```/g, " code block ")
       .replace(/`([^`]+)`/g, "$1")
@@ -121,7 +210,6 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
       .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
       .replace(/\n+/g, ". ")
       .trim();
-
     const utterance = new SpeechSynthesisUtterance(plainText);
     utterance.rate = 1;
     utterance.pitch = 1;
@@ -143,6 +231,11 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
     setReported(true);
     toast({ title: "Reported", description: "This response has been flagged for review." });
   };
+
+  // Find which segment is currently animating (for cursor placement)
+  const activeSegIdx = shouldAnimate && !typingDone
+    ? charCounts.findIndex((c, i) => c < segments[i].content.length)
+    : -1;
 
   return (
     <div
@@ -174,7 +267,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
         </div>
       ) : (
         <div className="group relative max-w-full sm:max-w-[92%]">
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {message.imageUrl && (
               <img
                 src={message.imageUrl}
@@ -183,42 +276,52 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               />
             )}
 
-            {message.content && isTask && (
-              <div className="rounded-xl border border-border bg-card overflow-hidden w-full">
-                <div className="overflow-y-auto p-3 sm:p-4 md:p-5 max-h-[50vh] sm:max-h-[60vh] md:max-h-[70vh]">
-                  <div
-                    className={cn(
-                      "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground text-[13px] sm:text-sm",
-                      proseClasses
-                    )}
-                  >
-                    <ReactMarkdown>{displayedContent}</ReactMarkdown>
-                    {!typingDone && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* Render segments: text → task card → text */}
+            {message.content && segments.map((seg, i) => {
+              const displayed = seg.content.slice(0, charCounts[i] ?? seg.content.length);
+              const isActive = activeSegIdx === i;
+              const segVisible = charCounts[i] > 0 || !shouldAnimate;
 
-            {message.content && !isTask && (
-              <div
-                className={cn(
-                  "relative rounded-2xl rounded-tl-sm",
-                  size === "short"
-                    ? "bg-card border border-border px-3.5 py-2.5 inline-block"
-                    : "px-0.5"
-                )}
-              >
+              if (!segVisible) return null;
+
+              if (seg.type === "task") {
+                return (
+                  <div key={i} className="rounded-xl border border-border bg-card overflow-hidden w-full">
+                    <div className="overflow-y-auto p-3 sm:p-4 md:p-5 max-h-[50vh] sm:max-h-[60vh] md:max-h-[70vh]">
+                      <div className={cn(
+                        "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground text-[13px] sm:text-sm",
+                        proseClasses
+                      )}>
+                        <ReactMarkdown>{displayed}</ReactMarkdown>
+                        {isActive && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Text segment (intro or outro)
+              const textSize = getMessageSize(displayed);
+              return (
                 <div
+                  key={i}
                   className={cn(
-                    "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground text-[13px] sm:text-sm break-words",
-                    proseClasses
+                    "relative rounded-2xl rounded-tl-sm",
+                    textSize === "short"
+                      ? "bg-card border border-border px-3.5 py-2.5 inline-block"
+                      : "px-0.5"
                   )}
                 >
-                  <ReactMarkdown>{displayedContent}</ReactMarkdown>
-                  {!typingDone && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
+                  <div className={cn(
+                    "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground text-[13px] sm:text-sm break-words",
+                    proseClasses
+                  )}>
+                    <ReactMarkdown>{displayed}</ReactMarkdown>
+                    {isActive && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
 
             {message.videos && message.videos.length > 0 && (
               <VideoGrid videos={message.videos} />
@@ -263,7 +366,6 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
     </div>
   );
 };
-
 /** Reusable small icon button for action bar */
 const ActionButton = ({
   children,
