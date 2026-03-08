@@ -191,23 +191,47 @@ function injectConsoleCapture(): string {
 
 /* ── Find entry point ── */
 function findEntryPoint(files: ProjectFile[], framework: string, hint?: string): string | null {
-  if (hint) {
+  // Vanilla projects can use HTML/JS directly
+  if (framework === "vanilla-html") {
+    if (hint) {
+      const found = files.find(f => f.path === hint || f.path.endsWith(hint));
+      if (found) return found.path;
+    }
+    for (const e of ["index.html", "src/index.html", "main.js", "script.js"]) {
+      if (files.find(f => f.path === e)) return e;
+    }
+    return files.find(f => /\.(html|js|ts)$/.test(f.path))?.path || null;
+  }
+
+  // For React/TSX projects: never treat index.html as app entry.
+  if (hint && /\.(tsx?|jsx?)$/.test(hint)) {
     const found = files.find(f => f.path === hint || f.path.endsWith(hint));
     if (found) return found.path;
   }
+
+  // If hint points to HTML, try extracting the module script src as actual entry (e.g. /src/main.tsx)
+  if (hint && hint.endsWith(".html")) {
+    const html = files.find(f => f.path === hint || f.path.endsWith(hint));
+    if (html) {
+      const m = html.content.match(/<script[^>]*type=["']module["'][^>]*src=["']([^"']+)["'][^>]*>/i);
+      if (m?.[1]) {
+        const src = m[1].replace(/^\//, "");
+        const fromHtml = files.find(f => f.path === src || f.path.endsWith(src));
+        if (fromHtml && /\.(tsx?|jsx?)$/.test(fromHtml.path)) return fromHtml.path;
+      }
+    }
+  }
+
   const entries = [
     "src/App.tsx", "src/App.jsx", "App.tsx", "App.jsx",
     "src/main.tsx", "src/main.jsx", "main.tsx", "main.jsx",
     "src/index.tsx", "src/index.jsx", "index.tsx", "index.jsx",
   ];
+
   for (const entry of entries) {
     if (files.find(f => f.path === entry)) return entry;
   }
-  if (framework === "vanilla-html") {
-    for (const e of ["index.html", "src/index.html", "main.js", "script.js"]) {
-      if (files.find(f => f.path === e)) return e;
-    }
-  }
+
   return files.find(f => /\.(tsx?|jsx?)$/.test(f.path))?.path || null;
 }
 
