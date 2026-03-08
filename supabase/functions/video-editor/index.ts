@@ -136,7 +136,7 @@ EDITING CAPABILITIES:
 4. **reorder** - Move a scene to a different position
 5. **transition** - Add/change transition between scenes (fade, dissolve, wipe, slide, zoom)
 6. **text_overlay** - Add text on screen with positioning
-7. **filter** - Apply visual filters (brighten, darken, warm, cool, saturate, vintage, cinematic, noir, blur)
+7. **filter** - Apply visual filters (brighten, darken, warm, cool, saturate, desaturate, vintage, cinematic, noir, blur)
 8. **speed** - Change playback speed (slow-mo: 0.25-0.9, fast: 1.1-4.0)
 9. **zoom_pan** - Ken Burns zoom/pan effect for dynamic movement
 10. **add_music** - Add background music track
@@ -144,6 +144,11 @@ EDITING CAPABILITIES:
 12. **regenerate_voice** - Re-record voiceover with new narration text
 13. **adjust_timing** - Change scene duration
 14. **crop** - Crop the video frame
+15. **color_grade** - Apply professional color grading presets
+16. **remove_filter** - Remove a specific filter from a scene
+17. **clear_overlays** - Remove all text overlays from a scene
+18. **duplicate_scene** - Clone a scene
+19. **reverse** - Reverse playback of a scene
 
 RULES:
 - Always use edit_video for any editing request, applying multiple operations at once when logical
