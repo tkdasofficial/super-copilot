@@ -253,6 +253,7 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteChat = useCallback((id: string) => {
     setHistory((prev) => prev.filter((c) => c.id !== id));
+    lsRemoveMessages(id);
 
     supabase
       .from("chat_sessions")
