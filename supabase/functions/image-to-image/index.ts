@@ -100,7 +100,8 @@ async function generateWithFreepik(
   const taskId = createData.data?.task_id || createData.task_id;
 
   if (!taskId) {
-    return createData.data?.images || createData.data || [];
+    const raw = createData.data?.images?.generated || createData.data?.images || createData.data || [];
+    return (Array.isArray(raw) ? raw : [raw]).map((img: any) => typeof img === "string" ? { url: img } : img);
   }
 
   // Poll for completion
