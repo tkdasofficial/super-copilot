@@ -206,7 +206,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             )}
 
             {/* ChatGPT-style action bar */}
-            {message.content && (
+            {message.content && typingDone && (
               <div className="flex items-center gap-0.5 pt-1">
                 {/* TTS */}
                 <ActionButton
