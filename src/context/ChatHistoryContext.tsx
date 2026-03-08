@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import type { ChatMessage } from "@/lib/types";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./AuthContext";
 
 export type ChatHistoryItem = {
   id: string;
@@ -13,12 +15,14 @@ export type ChatHistoryItem = {
 
 type ChatHistoryContextType = {
   history: ChatHistoryItem[];
+  loading: boolean;
   addChat: (title: string, preview: string, toolId?: string) => string;
   renameChat: (id: string, newTitle: string) => void;
   deleteChat: (id: string) => void;
   searchHistory: (query: string) => ChatHistoryItem[];
   updateChatMessages: (id: string, messages: ChatMessage[]) => void;
   getChatById: (id: string) => ChatHistoryItem | undefined;
+  loadChatMessages: (id: string) => Promise<ChatMessage[]>;
 };
 
 const ChatHistoryContext = createContext<ChatHistoryContextType | null>(null);
@@ -32,13 +36,115 @@ const getDateLabel = (ts: number): string => {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
+/** Serialize a ChatMessage's extra data into a JSONB-safe metadata object */
+function buildMetadata(msg: ChatMessage): Record<string, unknown> {
+  const meta: Record<string, unknown> = {};
+  if (msg.toolId) meta.toolId = msg.toolId;
+  if (msg.videos) meta.videos = msg.videos;
+  if (msg.videoGeneration) meta.videoGeneration = msg.videoGeneration;
+  if (msg.videoEdit) meta.videoEdit = msg.videoEdit;
+  if (msg.webApp) meta.webApp = msg.webApp;
+  return meta;
+}
+
+/** Reconstruct a ChatMessage from a DB row */
+function rowToMessage(row: any): ChatMessage {
+  const meta = (row.metadata || {}) as Record<string, any>;
+  return {
+    id: row.id,
+    role: row.role as "user" | "assistant",
+    content: row.content,
+    timestamp: new Date(row.created_at),
+    imageUrl: row.image_url || undefined,
+    toolId: meta.toolId,
+    videos: meta.videos,
+    videoGeneration: meta.videoGeneration,
+    videoEdit: meta.videoEdit,
+    webApp: meta.webApp,
+  };
+}
+
 export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
   const [history, setHistory] = useState<ChatHistoryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  // Load sessions from Supabase on mount / user change
+  useEffect(() => {
+    if (!user) {
+      setHistory([]);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadSessions = async () => {
+      setLoading(true);
+      // Only load sessions from last 7 days
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data, error } = await supabase
+        .from("chat_sessions")
+        .select("*")
+        .gte("created_at", sevenDaysAgo)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("Failed to load chat sessions:", error);
+        setLoading(false);
+        return;
+      }
+
+      const items: ChatHistoryItem[] = (data || []).map((s: any) => ({
+        id: s.id,
+        title: s.title,
+        toolId: s.tool_id,
+        preview: s.preview,
+        date: getDateLabel(new Date(s.created_at).getTime()),
+        createdAt: new Date(s.created_at).getTime(),
+        messages: [], // lazy-loaded
+      }));
+
+      setHistory(items);
+      setLoading(false);
+    };
+
+    loadSessions();
+    return () => { cancelled = true; };
+  }, [user]);
+
+  // Load messages for a specific chat session
+  const loadChatMessages = useCallback(async (sessionId: string): Promise<ChatMessage[]> => {
+    const { data, error } = await supabase
+      .from("chat_messages")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Failed to load chat messages:", error);
+      return [];
+    }
+
+    const msgs = (data || []).map(rowToMessage);
+
+    // Cache in history state
+    setHistory((prev) =>
+      prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h))
+    );
+
+    return msgs;
+  }, []);
 
   const addChat = useCallback((title: string, preview: string, toolId?: string) => {
-    const id = Date.now().toString();
+    // Create a temporary ID for immediate UI update
+    const tempId = crypto.randomUUID();
     const item: ChatHistoryItem = {
-      id,
+      id: tempId,
       title,
       preview,
       toolId,
@@ -47,15 +153,48 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
       messages: [],
     };
     setHistory((prev) => [item, ...prev]);
-    return id;
-  }, []);
+
+    // Persist to Supabase in background
+    if (user) {
+      supabase
+        .from("chat_sessions")
+        .insert({
+          id: tempId,
+          user_id: user.id,
+          title,
+          preview,
+          tool_id: toolId || null,
+        })
+        .then(({ error }) => {
+          if (error) console.error("Failed to save chat session:", error);
+        });
+    }
+
+    return tempId;
+  }, [user]);
 
   const renameChat = useCallback((id: string, newTitle: string) => {
     setHistory((prev) => prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c)));
+
+    supabase
+      .from("chat_sessions")
+      .update({ title: newTitle, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.error("Failed to rename chat:", error);
+      });
   }, []);
 
   const deleteChat = useCallback((id: string) => {
     setHistory((prev) => prev.filter((c) => c.id !== id));
+
+    supabase
+      .from("chat_sessions")
+      .delete()
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.error("Failed to delete chat:", error);
+      });
   }, []);
 
   const searchHistory = useCallback(
@@ -71,6 +210,38 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
 
   const updateChatMessages = useCallback((id: string, messages: ChatMessage[]) => {
     setHistory((prev) => prev.map((c) => (c.id === id ? { ...c, messages } : c)));
+
+    // Debounced save — only save the latest message that isn't saved yet
+    // We track by checking if the message ID looks like a DB uuid or a timestamp
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg) return;
+
+    // Save messages that are new (timestamp-based IDs from the frontend)
+    const newMessages = messages.filter((m) => /^\d+$/.test(m.id));
+    if (newMessages.length === 0) return;
+
+    const rows = newMessages.map((m) => ({
+      id: m.id.length < 36 ? crypto.randomUUID() : m.id,
+      session_id: id,
+      role: m.role,
+      content: m.content,
+      image_url: m.imageUrl || null,
+      metadata: buildMetadata(m),
+    }));
+
+    supabase
+      .from("chat_messages")
+      .upsert(rows, { onConflict: "id" })
+      .then(({ error }) => {
+        if (error) console.error("Failed to save messages:", error);
+      });
+
+    // Update session's updated_at
+    supabase
+      .from("chat_sessions")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .then(() => {});
   }, []);
 
   const getChatById = useCallback((id: string) => {
@@ -78,7 +249,19 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
   }, [history]);
 
   return (
-    <ChatHistoryContext.Provider value={{ history, addChat, renameChat, deleteChat, searchHistory, updateChatMessages, getChatById }}>
+    <ChatHistoryContext.Provider
+      value={{
+        history,
+        loading,
+        addChat,
+        renameChat,
+        deleteChat,
+        searchHistory,
+        updateChatMessages,
+        getChatById,
+        loadChatMessages,
+      }}
+    >
       {children}
     </ChatHistoryContext.Provider>
   );
