@@ -227,6 +227,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     if (isImageGen && !imageData) {
       try {
+        dispatchBgTask("image", { prompt: content, aspect_ratio: detectedRatio }, chatId || undefined).catch(() => {});
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`, {
           method: "POST",
           headers: {
