@@ -101,9 +101,9 @@ async function enhancePrompt(prompt: string): Promise<string> {
   } catch { return prompt; }
 }
 
-// ── Generate image via Freepik ──
-async function generateImage(freepikKey: string, geminiKey: string, prompt: string, aspectRatio: string): Promise<string> {
-  const enhanced = geminiKey ? await enhancePrompt(geminiKey, prompt) : prompt;
+// ── Generate image via Freepik (Gemini enhances prompt via fallback) ──
+async function generateImage(freepikKey: string, prompt: string, aspectRatio: string): Promise<string> {
+  const enhanced = await enhancePrompt(prompt);
   const freepikAR = ASPECT_RATIOS[aspectRatio] || "square_1_1";
   const endpoint = MODEL_ENDPOINTS["flux"];
 
