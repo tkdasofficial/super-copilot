@@ -99,4 +99,5 @@ export type ChatMessage = {
     mimeType: string;
     format: string;
   };
+  agentPlan?: AgentPlan;
 };
