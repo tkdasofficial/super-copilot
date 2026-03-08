@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, ShieldCheck } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, ShieldCheck, Smartphone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.svg";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
-type Mode = "login" | "signup" | "forgot" | "otp";
+type Mode = "login" | "signup" | "forgot" | "otp-email" | "otp-totp";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -43,19 +43,29 @@ const Auth = () => {
         if (error) throw error;
         toast({ title: "Account created", description: "Check your email to confirm your account." });
       } else {
-        // Login flow - check 2FA first
+        // Login flow
         const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Check if 2FA is enabled
-        const { data: twoFA } = await supabase.rpc("check_2fa_by_email", { _email: email });
+        // Check 2FA method
+        const { data: twoFAMethod } = await supabase.rpc("check_2fa_by_email", { _email: email });
 
-        if (twoFA) {
-          // Sign out the password session, then send OTP
+        if (twoFAMethod === "totp") {
+          // Check if user has TOTP factors - need to challenge
+          const { data: factors } = await supabase.auth.mfa.listFactors();
+          const totpFactor = factors?.totp?.[0];
+          if (totpFactor) {
+            setMode("otp-totp");
+            toast({ title: "2FA Required", description: "Enter the code from your authenticator app." });
+          } else {
+            // Factor not found, proceed normally
+            navigate("/");
+          }
+        } else if (twoFAMethod === "email") {
           await supabase.auth.signOut();
           const { error: otpError } = await supabase.auth.signInWithOtp({ email });
           if (otpError) throw otpError;
-          setMode("otp");
+          setMode("otp-email");
           toast({ title: "2FA Required", description: "We sent a verification code to your email." });
         } else {
           navigate("/");
@@ -68,7 +78,7 @@ const Auth = () => {
     }
   };
 
-  const handleVerifyOtp = async () => {
+  const handleVerifyEmailOtp = async () => {
     if (otpCode.length < 6) return;
     setLoading(true);
     try {
@@ -78,6 +88,31 @@ const Auth = () => {
         type: "email",
       });
       if (error) throw error;
+      navigate("/");
+    } catch (e: any) {
+      toast({ title: "Invalid code", description: e.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyTotpOtp = async () => {
+    if (otpCode.length < 6) return;
+    setLoading(true);
+    try {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totpFactor = factors?.totp?.[0];
+      if (!totpFactor) throw new Error("No authenticator factor found");
+
+      const { data: challenge, error: cErr } = await supabase.auth.mfa.challenge({ factorId: totpFactor.id });
+      if (cErr) throw cErr;
+
+      const { error: vErr } = await supabase.auth.mfa.verify({
+        factorId: totpFactor.id,
+        challengeId: challenge.id,
+        code: otpCode,
+      });
+      if (vErr) throw vErr;
       navigate("/");
     } catch (e: any) {
       toast({ title: "Invalid code", description: e.message, variant: "destructive" });
@@ -96,17 +131,26 @@ const Auth = () => {
     }
   };
 
-  if (mode === "otp") {
+  // OTP verification screens
+  if (mode === "otp-email" || mode === "otp-totp") {
+    const isTotp = mode === "otp-totp";
     return (
       <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4">
         <div className="w-full max-w-sm space-y-6">
           <div className="flex flex-col items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-              <ShieldCheck className="w-7 h-7 text-primary" />
+              {isTotp ? (
+                <Smartphone className="w-7 h-7 text-primary" />
+              ) : (
+                <ShieldCheck className="w-7 h-7 text-primary" />
+              )}
             </div>
             <h1 className="font-display text-xl font-semibold text-foreground">Two-Factor Authentication</h1>
             <p className="text-sm text-muted-foreground text-center">
-              Enter the 6-digit code sent to <span className="font-medium text-foreground">{email}</span>
+              {isTotp
+                ? "Enter the 6-digit code from your authenticator app"
+                : <>Enter the 6-digit code sent to <span className="font-medium text-foreground">{email}</span></>
+              }
             </p>
           </div>
 
@@ -124,7 +168,7 @@ const Auth = () => {
           </div>
 
           <button
-            onClick={handleVerifyOtp}
+            onClick={isTotp ? handleVerifyTotpOtp : handleVerifyEmailOtp}
             disabled={loading || otpCode.length < 6}
             className="w-full py-2.5 rounded-xl bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
           >
@@ -132,15 +176,17 @@ const Auth = () => {
           </button>
 
           <div className="flex flex-col items-center gap-2">
-            <button
-              onClick={async () => {
-                const { error } = await supabase.auth.signInWithOtp({ email });
-                if (!error) toast({ title: "Code resent", description: "Check your email." });
-              }}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Resend code
-            </button>
+            {!isTotp && (
+              <button
+                onClick={async () => {
+                  const { error } = await supabase.auth.signInWithOtp({ email });
+                  if (!error) toast({ title: "Code resent", description: "Check your email." });
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Resend code
+              </button>
+            )}
             <button
               onClick={() => { setMode("login"); setOtpCode(""); }}
               className="flex items-center gap-1 text-xs text-foreground font-medium hover:underline"

@@ -171,6 +171,7 @@ export type Database = {
           created_at: string
           enabled: boolean
           id: string
+          method: string
           updated_at: string
           user_id: string
         }
@@ -178,6 +179,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          method?: string
           updated_at?: string
           user_id: string
         }
@@ -185,6 +187,7 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          method?: string
           updated_at?: string
           user_id?: string
         }
@@ -246,7 +249,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      check_2fa_by_email: { Args: { _email: string }; Returns: boolean }
+      check_2fa_by_email: { Args: { _email: string }; Returns: string }
       cleanup_old_chat_sessions: { Args: never; Returns: undefined }
       has_role: {
         Args: {
