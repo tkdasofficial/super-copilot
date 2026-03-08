@@ -11,6 +11,8 @@ import { detectAspectRatio } from "@/lib/detect-aspect-ratio";
 import { getCategory } from "@/lib/file-converter";
 import { analyzeZip } from "@/lib/zip-analyzer";
 import type { TaskMode } from "./TaskModeSelector";
+import { useBackgroundTasks, type BackgroundTask } from "@/hooks/useBackgroundTasks";
+import BackgroundTaskBanner from "./BackgroundTaskBanner";
 type Props = {
   tool?: AITool;
   onMenuClick: () => void;
