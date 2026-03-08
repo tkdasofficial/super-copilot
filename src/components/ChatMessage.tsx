@@ -11,6 +11,7 @@ import WebAppPreviewCard from "./WebAppPreviewCard";
 import ZipAnalysisCard from "./ZipAnalysisCard";
 import FileConverterCard from "./FileConverterCard";
 import TTSCard from "./TTSCard";
+import FileCreatorCard from "./FileCreatorCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
@@ -420,6 +421,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             )}
             {message.ttsScript && (
               <TTSCard script={message.ttsScript} />
+            )}
+            {message.generatedFile && (
+              <FileCreatorCard file={message.generatedFile} />
             )}
 
             {/* Action bar */}

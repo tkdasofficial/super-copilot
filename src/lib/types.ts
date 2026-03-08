@@ -92,4 +92,10 @@ export type ChatMessage = {
   zipAnalysis?: ZipAnalysis;
   convertFile?: File;
   ttsScript?: string;
+  generatedFile?: {
+    fileName: string;
+    content: string;
+    mimeType: string;
+    format: string;
+  };
 };
