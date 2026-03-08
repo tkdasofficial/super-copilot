@@ -35,7 +35,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }
   }, [messages, chatId, updateChatMessages]);
 
-  const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }) => {
+  const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, aspectRatio?: string) => {
     const userMsg: ChatMessageType = {
       id: Date.now().toString(),
       role: "user",
@@ -79,7 +79,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
             image: imageData.base64,
             mimeType: imageData.mimeType,
             instruction: content,
-            aspect_ratio: "1:1",
+            aspect_ratio: aspectRatio || "1:1",
           }),
         });
         const data = await resp.json();
@@ -119,7 +119,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ prompt: content, aspect_ratio: "1:1", model: "flux" }),
+          body: JSON.stringify({ prompt: content, aspect_ratio: aspectRatio || "1:1", model: "flux" }),
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || "Image generation failed");
@@ -301,7 +301,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         )}
       </div>
 
-      <ChatInput toolName={tool?.shortName} onSend={handleSend} disabled={isTyping} />
+      <ChatInput toolName={tool?.shortName} onSend={handleSend} disabled={isTyping} showAspectRatio={tool?.id === "image-generator" || !tool} />
     </div>
   );
 };
