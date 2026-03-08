@@ -85,9 +85,10 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || "Image generation failed");
 
-        const imageUrl = data.images?.[0]?.base64
-          ? `data:image/png;base64,${data.images[0].base64}`
-          : data.images?.[0]?.url || data.images?.[0];
+        const firstImg = data.images?.[0];
+        const imageUrl = firstImg?.base64
+          ? `data:image/png;base64,${firstImg.base64}`
+          : firstImg?.url || (typeof firstImg === "string" ? firstImg : undefined);
 
         setMessages((prev) => [...prev, {
           id: (Date.now() + 1).toString(),
@@ -95,7 +96,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
           content: `Here is your generated image based on the reference. Prompt used: ${data.prompt || "optimized prompt"}`,
           timestamp: new Date(),
           toolId: tool?.id,
-          imageUrl: typeof imageUrl === "string" ? imageUrl : undefined,
+          imageUrl,
         }]);
       } catch (e: any) {
         setMessages((prev) => [...prev, {
