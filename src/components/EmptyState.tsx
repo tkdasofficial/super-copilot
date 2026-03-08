@@ -7,8 +7,15 @@ type Props = {
   onPromptClick: (prompt: string) => void;
 };
 
+const GENERAL_PROMPTS: SamplePrompt[] = [
+  { icon: Zap, label: "Quick idea", prompt: "Help me brainstorm content ideas for my channel" },
+  { icon: PenTool, label: "Write something", prompt: "Help me write a compelling social media post" },
+  { icon: Lightbulb, label: "Get advice", prompt: "What are the best strategies for growing on YouTube in 2026?" },
+  { icon: BarChart3, label: "Analyze trends", prompt: "What content trends are working right now?" },
+];
+
 const EmptyState = ({ tool, onPromptClick }: Props) => {
-  const prompts: SamplePrompt[] = tool ? tool.samplePrompts : GENERAL_CHAT_PROMPTS;
+  const prompts: SamplePrompt[] = tool ? tool.samplePrompts : GENERAL_PROMPTS;
   const title = tool ? tool.emptyStateTitle : "What can I help you with?";
   const subtitle = tool
     ? tool.emptyStateSubtitle

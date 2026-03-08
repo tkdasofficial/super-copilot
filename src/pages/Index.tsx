@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import { type AITool } from "@/lib/mock-data";
+import { type AITool } from "@/lib/types";
 import { useChatHistory } from "@/context/ChatHistoryContext";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import MobileSidebar from "@/components/MobileSidebar";

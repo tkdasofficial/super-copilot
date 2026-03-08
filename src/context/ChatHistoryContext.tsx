@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import type { ChatMessage } from "@/lib/mock-data";
+import type { ChatMessage } from "@/lib/types";
 
 export type ChatHistoryItem = {
   id: string;
