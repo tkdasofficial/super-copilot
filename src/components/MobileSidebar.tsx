@@ -9,11 +9,12 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onNewChat: () => void;
+  onSelectChat: (id: string) => void;
   isMainChat: boolean;
   chatHistory: { id: string; title: string; toolId?: string }[];
 };
 
-const MobileSidebar = ({ open, onClose, onNewChat, isMainChat, chatHistory }: Props) => {
+const MobileSidebar = ({ open, onClose, onNewChat, onSelectChat, isMainChat, chatHistory }: Props) => {
   const navigate = useNavigate();
   const { renameChat, deleteChat } = useChatHistory();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -99,7 +100,7 @@ const MobileSidebar = ({ open, onClose, onNewChat, isMainChat, chatHistory }: Pr
                     </div>
                   ) : (
                     <div className="flex items-center">
-                      <button className="flex-1 text-left px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors truncate">
+                      <button onClick={() => { onSelectChat(chat.id); onClose(); }} className="flex-1 text-left px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors truncate">
                         {chat.title}
                       </button>
                       <div className="hidden group-hover:flex items-center gap-0.5 pr-1">
