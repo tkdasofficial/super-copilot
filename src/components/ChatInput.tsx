@@ -11,7 +11,7 @@ type Props = {
   disabled?: boolean;
 };
 
-const ChatInput = ({ toolName, onSend, onZipUpload, disabled }: Props) => {
+const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled }: Props) => {
   const [value, setValue] = useState("");
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const [taskMode, setTaskMode] = useState<TaskMode>("general");
