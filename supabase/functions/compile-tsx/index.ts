@@ -1,7 +1,5 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-// Sucrase: lightweight pure-JS TypeScript/JSX transpiler (no WASM, no Workers)
 import { transform } from "https://esm.sh/sucrase@3.35.0";
 
 const corsHeaders = {
@@ -10,11 +8,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-type ProjectFile = {
-  path: string;
-  content: string;
-};
-
+type ProjectFile = { path: string; content: string };
 type CompileRequest = {
   files: ProjectFile[];
   framework: string;
@@ -22,28 +16,15 @@ type CompileRequest = {
   entryPoint?: string;
 };
 
-/**
- * Transpile a single file using sucrase.
- * Handles TSX, JSX, TypeScript, and regular JS.
- */
-function transpileFile(file: ProjectFile, stripImports = true): { code: string; error?: string } {
+/* ── Transpile a single file ── */
+function transpileFile(file: ProjectFile): { code: string; error?: string } {
   const ext = file.path.match(/\.(tsx?|jsx?)$/)?.[1] || "";
-  
-  // Only apply typescript and jsx transforms — keep ES imports/exports intact
-  // so they work with the browser's import map
+  if (!ext && !file.path.endsWith(".js")) return { code: file.content };
+
   const transforms: Array<"typescript" | "jsx"> = [];
   if (ext === "tsx" || ext === "ts") transforms.push("typescript");
   if (ext === "tsx" || ext === "jsx") transforms.push("jsx");
-  
-  // Skip non-JS files
-  if (!ext && !file.path.endsWith(".js")) {
-    return { code: file.content };
-  }
-
-  // If no transforms needed, return as-is
-  if (transforms.length === 0) {
-    return { code: stripImports ? stripImportExport(file.content) : file.content };
-  }
+  if (transforms.length === 0) return { code: file.content };
 
   try {
     const result = transform(file.content, {
@@ -52,20 +33,50 @@ function transpileFile(file: ProjectFile, stripImports = true): { code: string; 
       production: false,
       filePath: file.path,
     });
-    return { code: stripImports ? stripImportExport(result.code) : result.code };
+    return { code: result.code };
   } catch (err: any) {
     return { code: "", error: `${file.path}: ${err.message}` };
   }
 }
 
-/**
- * Strip ES import/export statements for inline execution in a script module
- * where React etc. are already available via top-level imports.
- */
-function stripImportExport(code: string): string {
+/* ── Extract all exported names from ORIGINAL source ── */
+function extractExports(code: string): { defaultExport: string | null; namedExports: string[] } {
+  let defaultExport: string | null = null;
+  const namedExports: string[] = [];
+
+  // export default function Foo / export default class Foo
+  let m = code.match(/export\s+default\s+(?:function|class)\s+(\w+)/);
+  if (m) defaultExport = m[1];
+
+  // export default Foo (standalone)
+  if (!defaultExport) {
+    m = code.match(/export\s+default\s+(\w+)\s*;/);
+    if (m) defaultExport = m[1];
+  }
+
+  // If no named default, look for the main component/function name
+  if (!defaultExport) {
+    // Check for `const Foo = ...` followed by `export default Foo` or just `export default`
+    const funcMatch = code.match(/(?:const|function|class)\s+([A-Z]\w*)/);
+    if (funcMatch && code.includes("export default")) {
+      defaultExport = funcMatch[1];
+    }
+  }
+
+  // Named exports: export const/let/var/function/class Name
+  const namedPattern = /export\s+(?:const|let|var|function|class)\s+(\w+)/g;
+  let nm;
+  while ((nm = namedPattern.exec(code)) !== null) {
+    namedExports.push(nm[1]);
+  }
+
+  return { defaultExport, namedExports };
+}
+
+/* ── Strip imports and exports for inline execution ── */
+function stripForInline(code: string): string {
   let result = code;
-  
-  // Remove import statements (React etc. are globally available via top-level import)
+  // Remove all import statements
   result = result.replace(/^import\s+.*?from\s+['"].*?['"];?\s*$/gm, "");
   result = result.replace(/^import\s+['"].*?['"];?\s*$/gm, "");
   result = result.replace(/^import\s+type\s+.*$/gm, "");
@@ -75,45 +86,63 @@ function stripImportExport(code: string): string {
   
   // Remove named exports keyword but keep declarations
   result = result.replace(/^export\s+(?=(?:const|let|var|function|class)\s)/gm, "");
-  
-  // Remove standalone export { ... } statements
+  // Remove standalone export { ... }
   result = result.replace(/^export\s*\{[^}]*\};?\s*$/gm, "");
-  
   return result.trim();
 }
 
-/**
- * Find the App component entry point.
- */
-function findEntryPoint(files: ProjectFile[], framework: string, hint?: string): string | null {
-  if (hint) {
-    const found = files.find(f => f.path === hint || f.path.endsWith(hint));
-    if (found) return found.path;
-  }
-
-  const entries = [
-    "src/App.tsx", "src/App.jsx", "App.tsx", "App.jsx",
-    "src/main.tsx", "src/main.jsx", "main.tsx", "main.jsx",
-    "src/index.tsx", "src/index.jsx", "index.tsx", "index.jsx",
+/* ── Resolve import path to a file ── */
+function resolveImport(importPath: string, files: ProjectFile[]): ProjectFile | null {
+  // Normalize: remove leading ./ or src/
+  let normalized = importPath.replace(/^\.\//, "").replace(/^src\//, "");
+  
+  // Try exact match first, then with extensions
+  const candidates = [
+    normalized,
+    `src/${normalized}`,
+    `${normalized}.tsx`,
+    `${normalized}.ts`,
+    `${normalized}.jsx`,
+    `${normalized}.js`,
+    `src/${normalized}.tsx`,
+    `src/${normalized}.ts`,
+    `src/${normalized}.jsx`,
+    `src/${normalized}.js`,
+    `${normalized}/index.tsx`,
+    `${normalized}/index.ts`,
+    `src/${normalized}/index.tsx`,
+    `src/${normalized}/index.ts`,
   ];
 
-  for (const entry of entries) {
-    if (files.find(f => f.path === entry)) return entry;
+  for (const candidate of candidates) {
+    const found = files.find(f => f.path === candidate);
+    if (found) return found;
   }
-
-  if (framework === "vanilla-html") {
-    const vanillaEntries = ["index.html", "src/index.html", "main.js", "script.js"];
-    for (const entry of vanillaEntries) {
-      if (files.find(f => f.path === entry)) return entry;
-    }
-  }
-
-  return files.find(f => /\.(tsx?|jsx?)$/.test(f.path))?.path || null;
+  return null;
 }
 
-/**
- * Build the import map for external dependencies.
- */
+/* ── Parse imports from a file to build dependency graph ── */
+function parseImports(code: string): Array<{ defaultImport: string | null; namedImports: string[]; path: string }> {
+  const imports: Array<{ defaultImport: string | null; namedImports: string[]; path: string }> = [];
+  
+  // import Default from './path'
+  // import { Named1, Named2 } from './path'
+  // import Default, { Named } from './path'
+  const importRegex = /^import\s+(?:(?:(\w+)(?:\s*,\s*)?)?(?:\{([^}]*)\})?\s+from\s+)?['"]([^'"]+)['"];?\s*$/gm;
+  let m;
+  while ((m = importRegex.exec(code)) !== null) {
+    const defaultImport = m[1] || null;
+    const namedImports = m[2] ? m[2].split(",").map(s => s.trim().split(/\s+as\s+/).pop()!.trim()).filter(Boolean) : [];
+    const path = m[3];
+    // Only process local imports (starting with . or src/)
+    if (path.startsWith(".") || path.startsWith("src/")) {
+      imports.push({ defaultImport, namedImports, path });
+    }
+  }
+  return imports;
+}
+
+/* ── Build import map for CDN deps ── */
 function buildImportMap(dependencies: Record<string, string>): Record<string, string> {
   const map: Record<string, string> = {
     "react": "https://esm.sh/react@18.3.1?dev",
@@ -125,39 +154,16 @@ function buildImportMap(dependencies: Record<string, string>): Record<string, st
     "react/jsx-dev-runtime": "https://esm.sh/react@18.3.1/jsx-dev-runtime?dev",
     "react-router-dom": "https://esm.sh/react-router-dom@6?dev&deps=react@18.3.1,react-dom@18.3.1",
   };
-
   for (const [pkg, version] of Object.entries(dependencies)) {
     if (!map[pkg]) {
       const ver = version.replace(/[\^~>=<]*/g, "");
       map[pkg] = `https://esm.sh/${pkg}@${ver}?deps=react@18.3.1,react-dom@18.3.1`;
     }
   }
-
   return map;
 }
 
-/**
- * Extract exported component/function names from transpiled code.
- */
-function extractExportedNames(originalCode: string): string[] {
-  const names: string[] = [];
-  const patterns = [
-    /export\s+(?:default\s+)?function\s+(\w+)/g,
-    /export\s+(?:default\s+)?class\s+(\w+)/g,
-    /export\s+(?:const|let|var)\s+(\w+)/g,
-    /export\s+default\s+(\w+)/g,
-  ];
-  for (const pat of patterns) {
-    let m;
-    while ((m = pat.exec(originalCode)) !== null) {
-      if (m[1] && m[1][0] === m[1][0].toUpperCase()) {
-        names.push(m[1]);
-      }
-    }
-  }
-  return [...new Set(names)];
-}
-
+/* ── Console capture injection ── */
 function injectConsoleCapture(): string {
   return `<script>
 (function() {
@@ -176,23 +182,77 @@ function injectConsoleCapture(): string {
   console.error = function() { relay('error', arguments); _err.apply(console, arguments); };
   window.onerror = function(msg, src, line) {
     relay('error', [msg + (line ? ' (line ' + line + ')' : '')]);
-    showOverlay(String(msg), line);
   };
   window.addEventListener('unhandledrejection', function(e) {
     const msg = e.reason?.stack || e.reason?.message || String(e.reason);
     relay('error', [msg]);
-    showOverlay(msg);
   });
-  function showOverlay(message, line) {
-    if (document.getElementById('__err')) return;
-    const d = document.createElement('div');
-    d.id = '__err';
-    d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:40%;overflow:auto;background:#1e1e2e;color:#f38ba8;font-family:monospace;font-size:12px;padding:12px 16px;z-index:999999;border-top:2px solid #f38ba8';
-    d.innerHTML = '<div style="display:flex;justify-content:space-between;margin-bottom:6px"><b style="color:#fab387">⚠ Runtime Error</b><button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:#6c7086;cursor:pointer;font-size:16px">✕</button></div><pre style="margin:0;white-space:pre-wrap;word-break:break-word">' + message.replace(/</g,'&lt;') + '</pre>';
-    document.body.appendChild(d);
-  }
 })();
 <\/script>`;
+}
+
+/* ── Find entry point ── */
+function findEntryPoint(files: ProjectFile[], framework: string, hint?: string): string | null {
+  if (hint) {
+    const found = files.find(f => f.path === hint || f.path.endsWith(hint));
+    if (found) return found.path;
+  }
+  const entries = [
+    "src/App.tsx", "src/App.jsx", "App.tsx", "App.jsx",
+    "src/main.tsx", "src/main.jsx", "main.tsx", "main.jsx",
+    "src/index.tsx", "src/index.jsx", "index.tsx", "index.jsx",
+  ];
+  for (const entry of entries) {
+    if (files.find(f => f.path === entry)) return entry;
+  }
+  if (framework === "vanilla-html") {
+    for (const e of ["index.html", "src/index.html", "main.js", "script.js"]) {
+      if (files.find(f => f.path === e)) return e;
+    }
+  }
+  return files.find(f => /\.(tsx?|jsx?)$/.test(f.path))?.path || null;
+}
+
+/* ── Topological sort of modules ── */
+function topoSort(
+  entryPath: string,
+  files: ProjectFile[],
+): { sorted: ProjectFile[]; appFile: ProjectFile | null } {
+  const visited = new Set<string>();
+  const sorted: ProjectFile[] = [];
+  let appFile: ProjectFile | null = null;
+
+  function visit(filePath: string) {
+    if (visited.has(filePath)) return;
+    visited.add(filePath);
+    
+    const file = files.find(f => f.path === filePath);
+    if (!file) return;
+
+    // Parse imports and visit dependencies first
+    const imports = parseImports(file.content);
+    for (const imp of imports) {
+      const resolved = resolveImport(imp.path, files);
+      if (resolved) visit(resolved.path);
+    }
+
+    if (filePath === entryPath) {
+      appFile = file;
+    } else {
+      sorted.push(file);
+    }
+  }
+
+  visit(entryPath);
+  
+  // Add any remaining module files not reached by imports
+  for (const f of files) {
+    if (/\.(tsx?|jsx?)$/.test(f.path) && !visited.has(f.path) && !f.path.includes("main.")) {
+      sorted.push(f);
+    }
+  }
+
+  return { sorted, appFile };
 }
 
 serve(async (req: Request) => {
@@ -217,13 +277,16 @@ serve(async (req: Request) => {
       const cssFiles = files.filter(f => f.path.endsWith(".css"));
       const jsFiles = files.filter(f => /\.(js|ts)$/.test(f.path));
       
-      // Transpile JS/TS files
       const transpiledJS: string[] = [];
-      const errors: string[] = [];
+      const warnings: string[] = [];
       for (const js of jsFiles) {
         const result = transpileFile(js);
-        if (result.error) errors.push(result.error);
-        else transpiledJS.push(result.code);
+        if (result.error) {
+          warnings.push(`Skipped ${js.path}: ${result.error}`);
+          transpiledJS.push(`/* error in ${js.path} */`);
+        } else {
+          transpiledJS.push(stripForInline(result.code));
+        }
       }
 
       const cssContent = cssFiles.map(f => f.content).join("\n");
@@ -231,16 +294,14 @@ serve(async (req: Request) => {
 
       if (htmlFile) {
         html = htmlFile.content;
-        // Inline CSS
         for (const css of cssFiles) {
           const pat = new RegExp(`<link[^>]*href=["'](?:\\.\\/)?${css.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*>`, "gi");
           html = html.replace(pat, `<style>${css.content}</style>`);
         }
-        // Inline transpiled JS
         for (let i = 0; i < jsFiles.length; i++) {
           const js = jsFiles[i];
           const pat = new RegExp(`<script[^>]*src=["'](?:\\.\\/)?${js.path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*>\\s*</script>`, "gi");
-          html = html.replace(pat, `<script>${transpiledJS[i] || ""}<\/script>`);
+          html = html.replace(pat, `<script>${transpiledJS[i]}<\/script>`);
         }
         if (!html.includes("<style>") && cssContent) {
           html = html.replace("</head>", `<style>${cssContent}</style>\n</head>`);
@@ -249,15 +310,14 @@ serve(async (req: Request) => {
         html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><script src="https://cdn.tailwindcss.com"><\/script><style>${cssContent}</style></head><body><script>${transpiledJS.join("\n")}<\/script></body></html>`;
       }
 
-      // Inject console capture
-      if (html.includes("</body>")) {
-        html = html.replace("</body>", injectConsoleCapture() + "\n</body>");
+      if (html.includes("</head>")) {
+        html = html.replace("</head>", injectConsoleCapture() + "\n</head>");
       } else {
         html += injectConsoleCapture();
       }
 
       return new Response(
-        JSON.stringify({ success: true, html, compiledFiles: files.length, bundleSize: html.length, errors, warnings: [] }),
+        JSON.stringify({ success: true, html, compiledFiles: files.length, bundleSize: html.length, warnings }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -272,61 +332,63 @@ serve(async (req: Request) => {
     }
 
     const cssContent = files.filter(f => f.path.endsWith(".css")).map(f => f.content).join("\n");
-    const moduleFiles = files.filter(f => /\.(tsx?|jsx?)$/.test(f.path));
-    
-    // Transpile all module files
-    const compiledModules: Array<{ path: string; code: string; exports: string[] }> = [];
-    const errors: string[] = [];
     const warnings: string[] = [];
 
-    for (const file of moduleFiles) {
+    // Topologically sort modules so dependencies come before dependents
+    const { sorted: depModules, appFile } = topoSort(entry, files);
+
+    // Transpile and build each module, exposing exports as global variables
+    const moduleBlocks: string[] = [];
+
+    for (const file of depModules) {
       const result = transpileFile(file);
       if (result.error) {
-        // Try a second pass: strip problematic lines and retry
-        const cleaned = file.content
-          .split("\n")
-          .filter(line => !/^import\s+type\s/.test(line.trim()))
-          .join("\n");
-        const retry = transpileFile({ ...file, content: cleaned });
-        if (retry.error) {
-          warnings.push(`Skipped ${file.path}: ${result.error}`);
-          // Still include a stub so references don't break
-          compiledModules.push({ path: file.path, code: `/* compile error in ${file.path} */`, exports: [] });
-          continue;
-        }
-        warnings.push(`Auto-fixed ${file.path} (removed problematic syntax)`);
-        const exports = extractExportedNames(cleaned);
-        compiledModules.push({ path: file.path, code: retry.code, exports });
+        warnings.push(`Skipped ${file.path}: ${result.error}`);
         continue;
       }
+
+      const stripped = stripForInline(result.code);
+      const exports = extractExports(file.content);
       
-      const exports = extractExportedNames(file.content);
-      compiledModules.push({ path: file.path, code: result.code, exports });
-    }
+      // Collect all names to expose
+      const allNames = [...exports.namedExports];
+      if (exports.defaultExport && !allNames.includes(exports.defaultExport)) {
+        allNames.push(exports.defaultExport);
+      }
 
-    // Find the app entry module
-    const appModule = compiledModules.find(m => m.path === entry);
-    const otherModules = compiledModules.filter(m => m.path !== entry && !m.path.includes("main."));
+      // Wrap in IIFE, extract names to global scope
+      const returnObj = allNames.length > 0 
+        ? `return { ${allNames.join(", ")} };`
+        : "return {};";
 
-    // Build the component setup code (non-entry modules wrapped in IIFEs)
-    const componentSetup = otherModules.map(m => {
-      const varName = m.path
-        .replace(/^src\//, "")
-        .replace(/\.(tsx?|jsx?)$/, "")
-        .replace(/[\/\-\.]/g, "_");
-      const exportList = m.exports.length > 0 ? m.exports.join(", ") : "";
-      return `
-// ── ${m.path} ──
-const __mod_${varName} = (function() {
+      moduleBlocks.push(`
+// ── ${file.path} ──
+var __mod_result = (function() {
   try {
-    ${m.code}
-    ${exportList ? `return { ${exportList} };` : "return {};"}
+    ${stripped}
+    ${returnObj}
   } catch(e) {
-    console.warn("Module ${m.path} failed:", e.message);
+    console.warn("Module ${file.path} error:", e.message);
     return {};
   }
-})();`;
-    }).join("\n");
+})();
+${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
+`);
+    }
+
+    // Transpile app entry
+    let appCode = "";
+    if (appFile) {
+      const result = transpileFile(appFile);
+      if (result.error) {
+        warnings.push(`App entry error: ${result.error}`);
+        appCode = "function App() { return React.createElement('div', {style:{padding:'2rem',textAlign:'center'}}, 'Compilation error in App'); }";
+      } else {
+        appCode = stripForInline(result.code);
+      }
+    } else {
+      appCode = "function App() { return React.createElement('div', {style:{padding:'2rem',textAlign:'center'}}, 'No App component found'); }";
+    }
 
     const importMap = buildImportMap(dependencies);
     const importMapJSON = JSON.stringify({ imports: importMap }, null, 2);
@@ -342,22 +404,46 @@ const __mod_${varName} = (function() {
   ${importMapJSON}
   <\/script>
   <style>${cssContent}</style>
+  ${injectConsoleCapture()}
 </head>
 <body>
   <div id="root"></div>
   <script type="module">
     import React, { useState, useEffect, useCallback, useRef, useMemo, useContext, createContext, useReducer, forwardRef, memo, Fragment, Suspense, lazy } from 'react';
     import { createRoot } from 'react-dom/client';
-    import { HashRouter, Routes, Route, Link, NavLink, useNavigate, useParams, useLocation, Navigate, Outlet, useSearchParams } from 'react-router-dom';
 
-    ${componentSetup}
+    // Make React available globally for JSX
+    window.React = React;
 
-    ${appModule?.code || "function App() { return React.createElement('div', {style:{padding:'2rem',textAlign:'center'}}, 'No App component found'); }"}
+    // Import router (may not be used, wrapped in try)
+    let HashRouter, BrowserRouter, Routes, Route, Link, NavLink, useNavigate, useParams, useLocation, Navigate, Outlet, useSearchParams;
+    try {
+      const router = await import('react-router-dom');
+      HashRouter = router.HashRouter;
+      BrowserRouter = router.BrowserRouter;
+      Routes = router.Routes;
+      Route = router.Route;
+      Link = router.Link;
+      NavLink = router.NavLink;
+      useNavigate = router.useNavigate;
+      useParams = router.useParams;
+      useLocation = router.useLocation;
+      Navigate = router.Navigate;
+      Outlet = router.Outlet;
+      useSearchParams = router.useSearchParams;
+    } catch(e) {
+      console.warn("react-router-dom not available:", e.message);
+    }
+
+    // ── Dependency modules (topological order) ──
+    ${moduleBlocks.join("\n")}
+
+    // ── App entry ──
+    ${appCode}
 
     const AppComponent = typeof App !== 'undefined' ? App :
-                         typeof _default !== 'undefined' ? _default :
-                         () => React.createElement('div', {style:{padding:'2rem',textAlign:'center',fontFamily:'system-ui'}},
-                           React.createElement('h2', null, '⚠ No App component found'));
+                         (() => React.createElement('div', {style:{padding:'2rem',textAlign:'center',fontFamily:'system-ui'}},
+                           React.createElement('h2', null, 'No App component found')));
 
     try {
       const root = createRoot(document.getElementById('root'));
@@ -365,24 +451,20 @@ const __mod_${varName} = (function() {
     } catch (err) {
       document.getElementById('root').innerHTML =
         '<div style="padding:2rem;color:#f38ba8;font-family:monospace"><h3>Render Error</h3><pre>' +
-        (err.stack || err.message) + '</pre></div>';
-      console.error(err);
+        (err.stack || err.message).replace(/</g,'&lt;') + '</pre></div>';
+      console.error('Render failed:', err);
     }
   <\/script>
-  ${injectConsoleCapture()}
 </body>
 </html>`;
 
-    // Always return HTML even with warnings — best effort
     return new Response(
       JSON.stringify({
         success: true,
         html,
-        compiledFiles: compiledModules.length,
+        compiledFiles: depModules.length + 1,
         bundleSize: html.length,
-        errors: errors.length > 0 ? errors : undefined,
         warnings,
-        autoFixed: warnings.some(w => w.startsWith("Auto-fixed")),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
