@@ -117,7 +117,8 @@ async function generateWithFreepik(
 
     const pollData = await pollRes.json();
     if (pollData.status === "COMPLETED" || pollData.data?.status === "COMPLETED") {
-      return pollData.data?.images || pollData.data || [];
+      const raw = pollData.data?.images?.generated || pollData.data?.images || pollData.data || [];
+      return (Array.isArray(raw) ? raw : [raw]).map((img: any) => typeof img === "string" ? { url: img } : img);
     }
     if (pollData.status === "FAILED" || pollData.data?.status === "FAILED") {
       throw new Error("Image generation failed");
