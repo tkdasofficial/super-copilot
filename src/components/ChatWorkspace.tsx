@@ -436,7 +436,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         )}
       </div>
 
-      <ChatInput toolName={tool?.shortName} onSend={handleSend} disabled={isTyping} />
+      <ChatInput toolName={tool?.shortName} onSend={handleSend} onZipUpload={handleZipUpload} disabled={isTyping} />
     </div>
   );
 };
