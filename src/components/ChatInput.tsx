@@ -21,8 +21,8 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
 
   // Setup speech recognition
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) return;
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
