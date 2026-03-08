@@ -25,34 +25,38 @@ const MODEL_ENDPOINTS: Record<string, string> = {
   "flux-pro": "flux-pro-v1-1",
 };
 
-async function enhancePrompt(apiKey: string, userPrompt: string): Promise<string> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: {
-            parts: [{
-              text: `You are an expert image prompt engineer. Given a user's image request, create a highly detailed, optimized prompt for an AI image generator. Include: subject details, composition, lighting, color palette, style, mood, camera angle, and technical quality keywords. Output ONLY the enhanced prompt text, nothing else. Keep it under 200 words.`
-            }]
-          },
-          contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        }),
-      }
-    );
-    if (!res.ok) {
-      console.error("Gemini enhance error:", res.status);
-      return userPrompt;
-    }
-    const data = await res.json();
-    const enhanced = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    return enhanced || userPrompt;
-  } catch (e) {
-    console.error("Prompt enhancement failed:", e);
-    return userPrompt;
+async function enhancePrompt(userPrompt: string): Promise<string> {
+  const keys: string[] = [];
+  for (const suffix of ["", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"]) {
+    const k = Deno.env.get(`GEMINI_API_KEY${suffix}`);
+    if (k) keys.push(k);
   }
+  const body = JSON.stringify({
+    system_instruction: {
+      parts: [{
+        text: `You are an expert image prompt engineer. Given a user's image request, create a highly detailed, optimized prompt for an AI image generator. Include: subject details, composition, lighting, color palette, style, mood, camera angle, and technical quality keywords. Output ONLY the enhanced prompt text, nothing else. Keep it under 200 words.`
+      }]
+    },
+    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+  });
+
+  for (const key of keys) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || userPrompt;
+      }
+      console.warn(`Gemini enhance key failed (${res.status})`);
+      if (res.status !== 429 && res.status !== 503 && res.status !== 500) break;
+    } catch (e) {
+      console.error("Prompt enhancement failed:", e);
+    }
+  }
+  return userPrompt;
 }
 
 async function pollTask(apiKey: string, model: string, taskId: string, maxAttempts = 30): Promise<string[]> {
