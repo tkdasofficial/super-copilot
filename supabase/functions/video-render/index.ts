@@ -363,8 +363,8 @@ serve(async (req) => {
 
           if (imagePrompt) {
             await sendEvent("task_update", { id: "regen-img", status: "working", label: "Regenerate Image" });
-            const url = await generateImage(FREEPIK_KEY, GEMINI_KEY, imagePrompt, aspect_ratio);
-        ndEvent("task_update", { id: "regen-img", status: "done" });
+            const url = await generateImage(FREEPIK_KEY, imagePrompt, aspect_ratio);
+            await sendEvent("task_update", { id: "regen-img", status: "done" });
             await sendEvent("scene_asset", { sceneIndex, type: "image", imageUrl: url });
           }
 
