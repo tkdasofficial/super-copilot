@@ -288,8 +288,7 @@ serve(async (req: Request) => {
       }
       
       const exports = extractExportedNames(file.content);
-      const strippedCode = stripModuleSystem(result.code);
-      compiledModules.push({ path: file.path, code: strippedCode, exports });
+      compiledModules.push({ path: file.path, code: result.code, exports });
     }
 
     // Find the app entry module
