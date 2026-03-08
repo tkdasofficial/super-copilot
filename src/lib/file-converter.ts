@@ -372,7 +372,8 @@ async function convertMedia(
 
   const data = await ffmpeg.readFile(outputName);
   const target = ALL_FORMATS.find((f) => f.ext === targetExt);
-  const blob = new Blob([data], { type: target?.mime });
+  const uint8 = data instanceof Uint8Array ? data : new TextEncoder().encode(data as string);
+  const blob = new Blob([uint8.buffer], { type: target?.mime });
   const name = file.name.replace(/\.[^.]+$/, `.${targetExt}`);
 
   onProgress({ stage: "Done!", percent: 100 });
