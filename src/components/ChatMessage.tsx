@@ -16,6 +16,41 @@ const getMessageSize = (content: string) => {
   return "long";
 };
 
+const CHARS_PER_SECOND = 100;
+
+const useTypewriter = (text: string, enabled: boolean) => {
+  const [displayed, setDisplayed] = useState(enabled ? "" : text);
+  const [done, setDone] = useState(!enabled);
+  const rafRef = useRef<number>(0);
+  const startRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (!enabled) {
+      setDisplayed(text);
+      setDone(true);
+      return;
+    }
+    setDisplayed("");
+    setDone(false);
+    startRef.current = performance.now();
+
+    const animate = (now: number) => {
+      const elapsed = (now - startRef.current) / 1000;
+      const chars = Math.min(Math.floor(elapsed * CHARS_PER_SECOND), text.length);
+      setDisplayed(text.slice(0, chars));
+      if (chars < text.length) {
+        rafRef.current = requestAnimationFrame(animate);
+      } else {
+        setDone(true);
+      }
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [text, enabled]);
+
+  return { displayed, done };
+};
+
 const ChatMessage = ({ message, isNew = false }: Props) => {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
@@ -23,7 +58,10 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
   const [reported, setReported] = useState(false);
   const { toast } = useToast();
-  const size = getMessageSize(message.content);
+
+  const shouldAnimate = isNew && !isUser;
+  const { displayed: displayedContent, done: typingDone } = useTypewriter(message.content, shouldAnimate);
+  const size = getMessageSize(displayedContent);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
