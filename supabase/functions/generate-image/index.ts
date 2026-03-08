@@ -99,7 +99,6 @@ serve(async (req) => {
     const { prompt, aspect_ratio = "1:1", model = "flux", num_images = 1 } = await req.json();
 
     const FREEPIK_API_KEY = Deno.env.get("FREEPIK_API_KEY");
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!FREEPIK_API_KEY) throw new Error("FREEPIK_API_KEY is not configured");
 
     if (!prompt) {
@@ -109,10 +108,8 @@ serve(async (req) => {
       );
     }
 
-    // Enhance prompt with Gemini 2.5 Flash
-    const enhancedPrompt = GEMINI_API_KEY
-      ? await enhancePrompt(GEMINI_API_KEY, prompt)
-      : prompt;
+    // Enhance prompt with Gemini 2.5 Flash (uses key fallback internally)
+    const enhancedPrompt = await enhancePrompt(prompt);
 
     console.log("Original prompt:", prompt);
     console.log("Enhanced prompt:", enhancedPrompt);
