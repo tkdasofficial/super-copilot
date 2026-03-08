@@ -222,14 +222,18 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }
 
     // File creation detection — user wants AI to create/write a file
-    const fileFormatMatch = content.match(/\b(?:as|in|to|into)\s+(?:a\s+)?\.?(txt|pdf|md|html|css|csv|json|xml|js|ts|py|sql|yaml|toml|sh|bat|rtf|log|ini|cfg|env)\b/i)
-      || content.match(/\.?(txt|pdf|md|html|css|csv|json|xml|js|ts|py|sql|yaml|toml|sh|bat|rtf)\s+(?:file|format|document)/i);
-    const isFileCreate = /\b(write|create|generate|make|draft|compose|prepare)\b.*\b(file|document|script|letter|resume|report|essay|article|blog|story|poem|contract|invoice|receipt|plan|outline|notes|summary|readme|changelog|license|config|template|list|schedule|agenda|minutes|proposal|brief|spec|documentation|manual|guide|tutorial|faq|terms|policy|privacy)\b/i.test(content)
-      || /\b(save|export|download)\b.*\b(as|to|into)\b.*\b(txt|pdf|md|html|csv|json|xml|file)\b/i.test(content)
-      || /\b(write|create)\b.*\b(txt|pdf|md|html|csv|json|xml)\b/i.test(content);
+    const fileFormatMatch = content.match(/\b(?:as|in|to|into)\s+(?:a\s+)?\.?(txt|pdf|md|html|css|csv|json|xml|js|ts|py|sql|yaml|toml|sh|bat|rtf|log|ini|cfg|env|xlsx|xls)\b/i)
+      || content.match(/\.?(txt|pdf|md|html|css|csv|json|xml|js|ts|py|sql|yaml|toml|sh|bat|rtf|xlsx|xls)\s+(?:file|format|document)/i)
+      || content.match(/\b(excel|spreadsheet|sheet|workbook)\b/i);
+    const isFileCreate = /\b(write|create|generate|make|draft|compose|prepare)\b.*\b(file|document|script|letter|resume|report|essay|article|blog|story|poem|contract|invoice|receipt|plan|outline|notes|summary|readme|changelog|license|config|template|list|schedule|agenda|minutes|proposal|brief|spec|documentation|manual|guide|tutorial|faq|terms|policy|privacy|spreadsheet|sheet|excel|workbook|budget|ledger|tracker|timesheet|roster|inventory|catalog|database|table)\b/i.test(content)
+      || /\b(save|export|download)\b.*\b(as|to|into)\b.*\b(txt|pdf|md|html|csv|json|xml|xlsx|xls|excel|file)\b/i.test(content)
+      || /\b(write|create)\b.*\b(txt|pdf|md|html|csv|json|xml|xlsx|xls)\b/i.test(content)
+      || /\b(create|make|generate|build)\b.*\b(excel|spreadsheet|sheet|workbook)\b/i.test(content);
 
     if (isFileCreate && !isAgent) {
-      const detectedFormat = fileFormatMatch?.[1]?.toLowerCase() || "txt";
+      const fmMatch = fileFormatMatch?.[1]?.toLowerCase();
+      const isExcelKeyword = /\b(excel|spreadsheet|sheet|workbook)\b/i.test(content);
+      const detectedFormat = isExcelKeyword && (!fmMatch || ["excel","spreadsheet","sheet","workbook"].includes(fmMatch)) ? "xlsx" : (fmMatch || "txt");
 
       try {
         setThinkingPhase("working");

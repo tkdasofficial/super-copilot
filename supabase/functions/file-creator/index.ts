@@ -28,6 +28,8 @@ const FORMAT_MIMES: Record<string, string> = {
   cfg: "text/plain",
   bat: "text/plain",
   rtf: "text/rtf",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  xls: "application/vnd.ms-excel",
 };
 
 const SYSTEM_PROMPT = `You are a professional file creator AI. You generate well-structured, error-free file content based on user requests.
@@ -39,6 +41,27 @@ RESPOND WITH VALID JSON ONLY:
   "format": "txt",
   "explanation": "Brief description of what was created"
 }
+
+## For XLSX/XLS (Excel/Spreadsheet) files:
+Return content as a JSON string with this structure:
+{
+  "fileName": "report.xlsx",
+  "content": "{\"sheets\":[{\"name\":\"Sheet1\",\"columns\":[{\"header\":\"Name\",\"key\":\"name\",\"width\":20},{\"header\":\"Email\",\"key\":\"email\",\"width\":30}],\"rows\":[{\"name\":\"John\",\"email\":\"john@example.com\"}],\"styles\":{\"headerBold\":true,\"headerBg\":\"4472C4\",\"headerColor\":\"FFFFFF\",\"alternateRows\":true,\"altRowBg\":\"D9E2F3\",\"borders\":true}}]}",
+  "format": "xlsx",
+  "explanation": "Created a professional Excel spreadsheet"
+}
+
+### Excel-specific rules:
+1. The "content" field MUST be a JSON string (stringified) containing a "sheets" array
+2. Each sheet has: name, columns (header, key, width), rows (objects matching column keys), and optional styles
+3. Support MULTIPLE sheets for complex data (e.g., Summary + Details + Charts Data)
+4. Use professional formatting: bold headers, colored header rows, appropriate column widths
+5. Include formulas as strings prefixed with "=" (e.g., "=SUM(B2:B10)")
+6. For financial data: use number formatting hints in columns (e.g., "format": "currency" or "format": "percentage")
+7. Column types: "string", "number", "date", "currency", "percentage", "formula"
+8. Styles object per sheet: headerBold, headerBg (hex no #), headerColor, alternateRows, altRowBg, borders, freezeHeader
+9. Generate REALISTIC, comprehensive data — at least 10-20 rows for data sheets
+10. For budgets/financials: include subtotals and grand totals using formulas
 
 ## Rules:
 1. Generate COMPLETE, production-quality content — no placeholders, no "add more here" comments
@@ -65,6 +88,7 @@ RESPOND WITH VALID JSON ONLY:
 - **SQL**: Standard SQL with CREATE, INSERT, proper data types
 - **PDF**: Return the text content (client will convert to PDF)
 - **SH/BAT**: Include shebang, comments, error handling
+- **XLSX/XLS**: Return JSON structure with sheets, columns, rows, styles (see Excel rules above)
 
 RESPOND WITH ONLY THE JSON OBJECT.`;
 
