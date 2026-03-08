@@ -524,7 +524,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       setTimeout(() => setThinkingPhase("researching"), 3500);
     }
 
-    // Regular chat - streaming
+    // Regular chat - streaming (with background task insurance)
     try {
       const chatMessages = messages
         .filter((m) => !m.imageUrl || m.role === "user")
@@ -552,6 +552,9 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       } else {
         chatMessages.push({ role: "user", content });
       }
+
+      // Dispatch background task as insurance (runs server-side if user leaves)
+      dispatchBgTask("chat", { messages: chatMessages, toolId: tool?.id, webAnalysis: isWebAnalysis }, chatId || undefined).catch(() => {});
 
       const resp = await fetch(CHAT_URL, {
         method: "POST",
