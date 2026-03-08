@@ -29,13 +29,18 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
     recognition.interimResults = true;
     recognition.lang = "en-US";
 
+    let finalTranscript = "";
+
     recognition.onresult = (event: SpeechRecognitionEvent) => {
-      let transcript = "";
-      for (let i = 0; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript + " ";
+        } else {
+          interim += event.results[i][0].transcript;
+        }
       }
-      setValue(transcript);
-      // Auto-resize textarea
+      setValue((finalTranscript + interim).trimStart());
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
         const nextHeight = Math.min(textareaRef.current.scrollHeight, 150);
