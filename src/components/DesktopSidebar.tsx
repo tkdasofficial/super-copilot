@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useChatHistory } from "@/context/ChatHistoryContext";
 import logo from "@/assets/logo.svg";
-import logo from "@/assets/logo.svg";
 
 type Props = {
   onNewChat: () => void;
