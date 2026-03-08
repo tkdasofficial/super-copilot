@@ -119,7 +119,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ prompt: content, aspect_ratio: "1:1", model: "flux" }),
+          body: JSON.stringify({ prompt: content, aspect_ratio: aspectRatio || "1:1", model: "flux" }),
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || "Image generation failed");
