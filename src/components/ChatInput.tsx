@@ -6,10 +6,11 @@ import TaskModeSelector, { type TaskMode } from "./TaskModeSelector";
 type Props = {
   toolName?: string;
   onSend: (message: string, imageData?: { base64: string; mimeType: string }, taskMode?: TaskMode) => void;
+  onZipUpload?: (file: File) => void;
   disabled?: boolean;
 };
 
-const ChatInput = ({ toolName, onSend, disabled }: Props) => {
+const ChatInput = ({ toolName, onSend, onZipUpload, disabled }: Props) => {
   const [value, setValue] = useState("");
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const [taskMode, setTaskMode] = useState<TaskMode>("general");
@@ -111,6 +112,14 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Handle ZIP files
+    if (file.name.toLowerCase().endsWith(".zip") || file.type === "application/zip" || file.type === "application/x-zip-compressed") {
+      onZipUpload?.(file);
+      e.target.value = "";
+      return;
+    }
+
     if (!file.type.startsWith("image/")) return;
 
     const reader = new FileReader();
@@ -165,7 +174,7 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.zip,application/zip"
                 onChange={handleFileSelect}
                 className="hidden"
               />

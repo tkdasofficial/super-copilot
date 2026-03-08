@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import VideoGenerationCard from "./VideoGenerationCard";
 import VideoEditorCard from "./VideoEditorCard";
 import WebAppPreviewCard from "./WebAppPreviewCard";
+import ZipAnalysisCard from "./ZipAnalysisCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
@@ -408,6 +409,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             )}
             {message.webApp && (
               <WebAppPreviewCard project={message.webApp} />
+            )}
+            {message.zipAnalysis && (
+              <ZipAnalysisCard analysis={message.zipAnalysis} />
             )}
 
             {/* Action bar */}
