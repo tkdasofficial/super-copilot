@@ -1,9 +1,9 @@
 import { cn } from "@/lib/utils";
-import { X, PenSquare, MessageSquare, Pencil, Trash2, Check, ChevronDown, ChevronRight } from "lucide-react";
+import { X, PenSquare, MessageSquare, Pencil, Trash2, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useChatHistory } from "@/context/ChatHistoryContext";
-import { STUDIO_CATEGORIES } from "@/lib/workflow-presets";
+import logo from "@/assets/logo.svg";
 import logo from "@/assets/logo.svg";
 
 type Props = {
