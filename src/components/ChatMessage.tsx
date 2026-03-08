@@ -9,6 +9,7 @@ import VideoGenerationCard from "./VideoGenerationCard";
 import VideoEditorCard from "./VideoEditorCard";
 import WebAppPreviewCard from "./WebAppPreviewCard";
 import ZipAnalysisCard from "./ZipAnalysisCard";
+import FileConverterCard from "./FileConverterCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
@@ -412,6 +413,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             )}
             {message.zipAnalysis && (
               <ZipAnalysisCard analysis={message.zipAnalysis} />
+            )}
+            {message.convertFile && (
+              <FileConverterCard file={message.convertFile} />
             )}
 
             {/* Action bar */}

@@ -90,4 +90,5 @@ export type ChatMessage = {
   videoEdit?: VideoEditRequest;
   webApp?: WebAppData;
   zipAnalysis?: ZipAnalysis;
+  convertFile?: File;
 };

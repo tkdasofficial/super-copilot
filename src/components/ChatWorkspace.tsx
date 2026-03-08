@@ -8,6 +8,7 @@ import ChatMessage from "./ChatMessage";
 import EmptyState from "./EmptyState";
 import TypingIndicator, { detectPhase, type ThinkingPhase } from "./TypingIndicator";
 import { detectAspectRatio } from "@/lib/detect-aspect-ratio";
+import { getCategory } from "@/lib/file-converter";
 import { analyzeZip } from "@/lib/zip-analyzer";
 import type { TaskMode } from "./TaskModeSelector";
 type Props = {
@@ -441,6 +442,33 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     setIsTyping(false);
   }, [chatId, addChat, tool]);
 
+  const handleFileConvert = useCallback((file: File) => {
+    const cat = getCategory(file);
+    if (!cat) return;
+
+    const userMsg: ChatMessageType = {
+      id: Date.now().toString(),
+      role: "user",
+      content: `Convert file: ${file.name}`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
+    if (!chatId) {
+      const title = `Convert: ${file.name}`;
+      const newId = addChat(title, `Convert ${file.name}`, tool?.id);
+      setChatId(newId);
+    }
+
+    setMessages((prev) => [...prev, {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: `Here's the file converter for **${file.name}**. Select your target format and click convert:`,
+      timestamp: new Date(),
+      convertFile: file,
+    }]);
+  }, [chatId, addChat, tool]);
+
   function formatBytes(bytes: number): string {
     if (bytes === 0) return "0 B";
     const units = ["B", "KB", "MB", "GB"];
@@ -480,7 +508,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         )}
       </div>
 
-      <ChatInput toolName={tool?.shortName} onSend={handleSend} onZipUpload={handleZipUpload} disabled={isTyping} />
+      <ChatInput toolName={tool?.shortName} onSend={handleSend} onZipUpload={handleZipUpload} onFileConvert={handleFileConvert} disabled={isTyping} />
     </div>
   );
 };

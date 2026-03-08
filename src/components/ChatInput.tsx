@@ -7,10 +7,11 @@ type Props = {
   toolName?: string;
   onSend: (message: string, imageData?: { base64: string; mimeType: string }, taskMode?: TaskMode) => void;
   onZipUpload?: (file: File) => void;
+  onFileConvert?: (file: File) => void;
   disabled?: boolean;
 };
 
-const ChatInput = ({ toolName, onSend, onZipUpload, disabled }: Props) => {
+const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled }: Props) => {
   const [value, setValue] = useState("");
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const [taskMode, setTaskMode] = useState<TaskMode>("general");
@@ -120,15 +121,21 @@ const ChatInput = ({ toolName, onSend, onZipUpload, disabled }: Props) => {
       return;
     }
 
-    if (!file.type.startsWith("image/")) return;
+    // Handle image files for chat attachment
+    if (file.type.startsWith("image/") && !e.target.dataset.convertMode) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        setAttachedImage({ base64, mimeType: file.type, preview: result });
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
+      return;
+    }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.split(",")[1];
-      setAttachedImage({ base64, mimeType: file.type, preview: result });
-    };
-    reader.readAsDataURL(file);
+    // Handle any other file for conversion
+    onFileConvert?.(file);
     e.target.value = "";
   };
 
@@ -174,7 +181,7 @@ const ChatInput = ({ toolName, onSend, onZipUpload, disabled }: Props) => {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,.zip,application/zip"
+                accept="image/*,.zip,application/zip,video/*,audio/*,.txt,.pdf,.html,.md,.csv,.json,.xml,.mp4,.webm,.avi,.mov,.mkv,.mp3,.wav,.ogg,.aac,.flac,.m4a,.bmp,.gif,.ico,.svg,.webp"
                 onChange={handleFileSelect}
                 className="hidden"
               />
