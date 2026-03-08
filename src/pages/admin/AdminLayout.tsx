@@ -38,7 +38,7 @@ const AdminLayout = () => {
 
   useEffect(() => {
     if (!loading && !isAdmin) {
-      navigate("/");
+      navigate("/app/new");
     }
   }, [isAdmin, loading, navigate]);
 
