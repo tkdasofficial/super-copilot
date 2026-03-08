@@ -590,6 +590,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const title = `ZIP: ${file.name}`;
       const newId = addChat(title, `Uploaded ${file.name}`, tool?.id);
       setChatId(newId);
+      setChatTitle(title);
     }
 
     try {
