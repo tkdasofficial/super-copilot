@@ -316,7 +316,7 @@ serve(async (req) => {
         // ── PHASE 1: Script Generation ──
         await sendEvent("task_update", { id: "script", status: "working", label: "Writing Script", group: "script" });
 
-        const script = await generateLongFormScript(GEMINI_KEY, topic, duration, aspect_ratio, style);
+        const script = await generateLongFormScript(topic, duration, aspect_ratio, style);
 
         // Flatten all scenes from chapters
         const allScenes: any[] = [];
