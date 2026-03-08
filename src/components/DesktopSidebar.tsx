@@ -1,9 +1,8 @@
 import { cn } from "@/lib/utils";
-import { PenSquare, Search, MessageSquare, Pencil, Trash2, Check, X, ChevronDown, ChevronRight } from "lucide-react";
+import { PenSquare, Search, MessageSquare, Pencil, Trash2, Check, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useChatHistory } from "@/context/ChatHistoryContext";
-import { STUDIO_CATEGORIES } from "@/lib/workflow-presets";
 import logo from "@/assets/logo.svg";
 
 type Props = {
@@ -20,7 +19,7 @@ const DesktopSidebar = ({ onNewChat, onSelectChat, isMainChat, chatHistory }: Pr
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [studiosOpen, setStudiosOpen] = useState(false);
+  
 
   const displayHistory = searchQuery ? searchHistory(searchQuery) : chatHistory;
 
@@ -85,32 +84,6 @@ const DesktopSidebar = ({ onNewChat, onSelectChat, isMainChat, chatHistory }: Pr
           <span>Chat</span>
         </button>
 
-        {/* AI Studios section */}
-        <button
-          onClick={() => setStudiosOpen(!studiosOpen)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-        >
-          {studiosOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-          <span>AI Studios</span>
-        </button>
-
-        {studiosOpen && (
-          <div className="pl-4 space-y-0.5">
-            {STUDIO_CATEGORIES.map((studio) => {
-              const Icon = studio.icon;
-              return (
-                <button
-                  key={studio.id}
-                  onClick={onNewChat}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-                >
-                  <Icon className={`w-3.5 h-3.5 ${studio.color}`} />
-                  <span className="truncate">{studio.shortName}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {displayHistory.length > 0 && (
