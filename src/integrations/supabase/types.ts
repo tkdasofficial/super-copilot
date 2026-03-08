@@ -41,6 +41,56 @@ export type Database = {
         }
         Relationships: []
       }
+      background_tasks: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          input: Json
+          progress: number
+          result: Json | null
+          session_id: string | null
+          status: string
+          task_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          input?: Json
+          progress?: number
+          result?: Json | null
+          session_id?: string | null
+          status?: string
+          task_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          input?: Json
+          progress?: number
+          result?: Json | null
+          session_id?: string | null
+          status?: string
+          task_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "background_tasks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "chat_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_messages: {
         Row: {
           content: string
