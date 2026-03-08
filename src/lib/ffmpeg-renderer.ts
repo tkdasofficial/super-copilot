@@ -339,7 +339,7 @@ export async function renderToMP4(
 
     // 5. Read output and create blob URL
     const outputData = await ffmpeg.readFile("output.mp4");
-    const blob = new Blob([outputData], { type: "video/mp4" });
+    const blob = new Blob([new Uint8Array(outputData as Uint8Array)], { type: "video/mp4" });
     const videoUrl = URL.createObjectURL(blob);
 
     // Cleanup virtual FS
