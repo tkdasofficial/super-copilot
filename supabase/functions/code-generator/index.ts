@@ -339,6 +339,197 @@ DO NOT use @react-three/fiber v9+ or @react-three/drei v10+ — they require Rea
 - **Trail effects** — For fast-moving objects
 
 ═══════════════════════════════════════════════════
+## 🎨 GAME ASSET CREATION SYSTEM
+═══════════════════════════════════════════════════
+
+### Asset Quality Tiers
+
+**Tier 1 — Basic (single file per asset)**
+For prototype/simple games. Each asset is a single JS file with inline drawing:
+\`\`\`
+assets/player.js       — draws player with Canvas primitives
+assets/enemy.js        — draws enemy
+assets/background.js   — draws background
+\`\`\`
+
+**Tier 2 — Standard (asset module files)**
+For mid-quality games. Assets are JS modules with detailed rendering:
+\`\`\`
+assets/sprites/player.js       — multi-frame sprite with animation states
+assets/sprites/enemies.js      — enemy types with variants
+assets/sprites/projectiles.js  — bullet/projectile visuals
+assets/tiles/tileset.js        — tile definitions for maps
+assets/ui/hud.js               — HUD rendering functions
+assets/fx/particles.js         — particle presets
+\`\`\`
+
+**Tier 3 — HIGH QUALITY (multi-file asset folders)**
+For production/polished games. Each major asset gets its OWN FOLDER with multiple specialized files:
+
+\`\`\`
+assets/
+├── characters/
+│   ├── player/
+│   │   ├── player-renderer.js      — Main render function with all animation frames
+│   │   ├── player-animations.js    — Animation state machine (idle, run, jump, attack, hurt, death)
+│   │   ├── player-physics.js       — Character-specific physics (movement, gravity, friction)
+│   │   ├── player-abilities.js     — Special moves, power-ups, skill tree
+│   │   ├── player-particles.js     — Character particle effects (dust, trail, impact)
+│   │   └── player-audio.js         — Character sound effects (Web Audio tones)
+│   ├── enemy-grunt/
+│   │   ├── grunt-renderer.js       — Visual rendering with variants
+│   │   ├── grunt-ai.js             — Behavior tree / state machine AI
+│   │   ├── grunt-animations.js     — Animation frames and states
+│   │   └── grunt-particles.js      — Death/hit effects
+│   ├── enemy-boss/
+│   │   ├── boss-renderer.js        — Complex multi-part boss rendering
+│   │   ├── boss-phases.js          — Multi-phase boss fight logic
+│   │   ├── boss-attacks.js         — Attack patterns and projectile spawners
+│   │   ├── boss-animations.js      — Phase-specific animations
+│   │   └── boss-particles.js       — Epic particle effects
+│   └── npc/
+│       ├── npc-renderer.js         — NPC visual variants
+│       ├── npc-dialogue.js         — Dialogue trees and text
+│       └── npc-behavior.js         — Patrol, interact, trade logic
+├── environment/
+│   ├── tilemap/
+│   │   ├── tileset-renderer.js     — Tile rendering with auto-tiling
+│   │   ├── tileset-data.js         — Tile type definitions and properties
+│   │   ├── tilemap-generator.js    — Procedural map generation
+│   │   └── tilemap-collision.js    — Tile-based collision maps
+│   ├── backgrounds/
+│   │   ├── sky-renderer.js         — Dynamic sky with day/night cycle
+│   │   ├── parallax-layers.js      — Multi-layer parallax backgrounds
+│   │   ├── weather-effects.js      — Rain, snow, fog, lightning
+│   │   └── ambient-particles.js    — Floating dust, fireflies, leaves
+│   └── props/
+│       ├── destructible.js         — Breakable objects with debris
+│       ├── interactive.js          — Switches, doors, chests, levers
+│       ├── collectible.js          — Coins, gems, power-ups with animations
+│       └── hazards.js              — Spikes, fire, electricity
+├── effects/
+│   ├── particle-presets.js         — Reusable particle configurations
+│   ├── screen-effects.js          — Shake, flash, slow-mo, chromatic aberration
+│   ├── transitions.js             — Scene transitions (fade, wipe, pixelate)
+│   └── lighting.js                — Dynamic 2D lighting / shadow casting
+├── ui/
+│   ├── hud/
+│   │   ├── health-bar.js          — Animated health bar with damage flash
+│   │   ├── score-display.js       — Score with combo multiplier animation
+│   │   ├── minimap.js             — Mini-map renderer
+│   │   └── inventory-ui.js        — Item grid with tooltips
+│   ├── menus/
+│   │   ├── main-menu.js           — Animated main menu with background
+│   │   ├── pause-menu.js          — Pause overlay with blur
+│   │   ├── settings-menu.js       — Audio, controls, display settings
+│   │   ├── game-over-screen.js    — Score summary, high scores, retry
+│   │   └── victory-screen.js      — Win screen with stats
+│   └── controls/
+│       ├── virtual-joystick.js    — Touch joystick with dead zone
+│       ├── virtual-buttons.js     — Action buttons for mobile
+│       └── touch-gestures.js      — Swipe, pinch, tap detection
+├── audio/
+│   ├── music-engine.js            — Procedural music generation
+│   ├── sfx-library.js             — All sound effects (Web Audio synthesis)
+│   ├── ambient-audio.js           — Background ambience loops
+│   └── audio-manager.js           — Volume control, spatial audio, ducking
+└── data/
+    ├── level-data.js              — Level definitions, spawn points, triggers
+    ├── enemy-waves.js             — Wave configurations, difficulty curves
+    ├── item-database.js           — Item stats, descriptions, rarity
+    ├── dialogue-data.js           — NPC dialogues, quest text
+    └── config.js                  — Game constants, balance values, tuning
+\`\`\`
+
+### Asset Creation Rules
+
+1. **Quality Detection**: When the user asks for "high quality", "polished", "professional", "AAA", or "production" game — USE TIER 3 with full folder structure
+2. **Default**: Standard games use Tier 2. Simple/prototype games use Tier 1
+3. **Character Assets**: Every character MUST have:
+   - Renderer with multiple visual states (idle, moving, attacking, hurt, dead)
+   - At least 4-8 animation frames per state drawn with Canvas paths/shapes
+   - Color palette defined as constants for easy theming
+   - Scale-independent rendering (draw at any size)
+4. **Procedural Art**: Since we can't load external images, ALL visuals must be:
+   - Drawn with Canvas 2D API (paths, arcs, bezier curves, gradients)
+   - Detailed and visually appealing (not just colored rectangles)
+   - Use gradients, shadows, and layered shapes for depth
+   - Include micro-animations (breathing, floating, pulsing)
+5. **Each asset file must export** a clear API:
+   \`\`\`javascript
+   // assets/characters/player/player-renderer.js
+   export function drawPlayer(ctx, x, y, w, h, state, frame, direction) { ... }
+   export function getPlayerFrameCount(state) { ... }
+   export const PLAYER_COLORS = { body: '#3498db', outline: '#2c3e50', ... };
+   \`\`\`
+6. **Animation System** in each character:
+   \`\`\`javascript
+   // assets/characters/player/player-animations.js
+   export const ANIMATIONS = {
+     idle: { frames: 4, speed: 0.08, loop: true },
+     run: { frames: 6, speed: 0.12, loop: true },
+     jump: { frames: 3, speed: 0.1, loop: false },
+     attack: { frames: 5, speed: 0.15, loop: false, onComplete: 'idle' },
+     hurt: { frames: 2, speed: 0.05, loop: false, onComplete: 'idle' },
+     death: { frames: 4, speed: 0.08, loop: false },
+   };
+   export class AnimationController {
+     constructor() { this.state = 'idle'; this.frame = 0; this.timer = 0; }
+     setState(state) { if (this.state !== state) { this.state = state; this.frame = 0; this.timer = 0; } }
+     update(dt) { ... }
+     getFrame() { return { state: this.state, frame: this.frame }; }
+   }
+   \`\`\`
+
+### 3D Asset Structure (Three.js / R3F)
+
+For 3D high-quality games, asset folders contain component files:
+\`\`\`
+assets/
+├── models/
+│   ├── player/
+│   │   ├── PlayerModel.tsx        — 3D mesh with materials, built from geometry
+│   │   ├── PlayerAnimations.ts    — Animation clips and mixer logic
+│   │   ├── PlayerController.tsx   — Movement, physics, camera follow
+│   │   └── PlayerEffects.tsx      — Particle trails, aura, impact VFX
+│   ├── enemies/
+│   │   ├── EnemyFactory.tsx       — Spawner with pooling
+│   │   ├── EnemyTypes.ts          — Enemy definitions and stats
+│   │   └── EnemyAI.ts             — Behavior trees
+│   └── environment/
+│       ├── Terrain.tsx            — Procedural terrain with noise
+│       ├── Skybox.tsx             — Dynamic sky
+│       ├── Vegetation.tsx         — Instanced trees/grass
+│       └── Structures.tsx         — Buildings, obstacles
+├── materials/
+│   ├── shaders.ts                 — Custom shader materials
+│   ├── textures.ts                — Procedural texture generators
+│   └── palettes.ts                — Color scheme definitions
+├── effects/
+│   ├── ParticleSystem.tsx         — 3D particle system component
+│   ├── PostProcessing.tsx         — Bloom, SSAO, color grading
+│   └── Lighting.tsx               — Dynamic light setup
+└── ui/
+    ├── HUD3D.tsx                  — 3D HUD overlay
+    ├── Menus3D.tsx                — 3D menu system
+    └── BillboardText.tsx          — Floating text/labels
+\`\`\`
+
+### Import Convention
+
+All asset files use ES module exports. The main game file imports from asset folders:
+\`\`\`javascript
+// For vanilla-html games — use relative paths
+import { drawPlayer, PLAYER_COLORS } from './assets/characters/player/player-renderer.js';
+import { AnimationController, ANIMATIONS } from './assets/characters/player/player-animations.js';
+import { PlayerPhysics } from './assets/characters/player/player-physics.js';
+import { createParticlePreset } from './assets/effects/particle-presets.js';
+import { drawHealthBar } from './assets/ui/hud/health-bar.js';
+\`\`\`
+
+For vanilla-html framework with multiple JS files, the compiler will inline them. Each file should be self-contained with clear exports.
+
+═══════════════════════════════════════════════════
 ## WEB APPLICATION RULES
 ═══════════════════════════════════════════════════
 
@@ -431,6 +622,7 @@ serve(async (req) => {
     const is3D = /\b(3d|three\.?js|r3f|react.three|fiber|3 ?dimension|first.person|third.person|fps|open.world)\b/i.test(userContent);
     const isPortrait = /\b(portrait|vertical|mobile.first|endless.runner|tall|phone)\b/i.test(userContent);
     const isLandscape = /\b(landscape|horizontal|wide|widescreen)\b/i.test(userContent);
+    const isHighQuality = /\b(high.quality|polished|professional|production|aaa|premium|detailed|beautiful|stunning|amazing|best|epic|advanced)\b/i.test(userContent) || quality === "production";
 
     // Append quality, framework, and game-specific hints
     const lastMsg = geminiContents[geminiContents.length - 1];
@@ -442,8 +634,17 @@ serve(async (req) => {
       if (isGame) {
         hints.push("This is a GAME request — implement ALL professional game systems: game loop with fixed timestep, state machine, input manager (keyboard+touch), particle system, camera system, audio manager with Web Audio API tones, HUD, loading screen, main menu, pause menu, game over screen, high score via localStorage, mobile touch controls, screen shake, particle effects");
         
+        if (isHighQuality) {
+          hints.push("USE TIER 3 ASSET STRUCTURE — Create MULTIPLE FOLDERS for each major asset (characters, environment, effects, ui, audio, data). Each character gets its own subfolder with separate files for renderer, animations, physics, AI, particles, and audio. Create detailed procedural Canvas art with gradients, shadows, bezier curves — NOT simple rectangles. Include AnimationController classes with multi-frame animations per state (idle 4+ frames, run 6+ frames, attack 5+ frames). Generate 15-30+ files organized in proper asset folder hierarchy");
+        } else {
+          hints.push("Use Tier 2 asset structure with organized asset modules");
+        }
+        
         if (is3D) {
           hints.push("Use react-vite framework with Three.js (@react-three/fiber ^8.18, @react-three/drei ^9.122.0, three >=0.133). Include proper 3D lighting, shadows, materials, and camera controls");
+          if (isHighQuality) {
+            hints.push("Create separate component files for each 3D entity: PlayerModel.tsx, PlayerController.tsx, PlayerEffects.tsx, EnemyFactory.tsx, Terrain.tsx, etc. Use custom shader materials, instanced meshes, and post-processing");
+          }
         } else {
           hints.push("Use vanilla-html with HTML5 Canvas. Include full game loop, sprite rendering, collision detection, particle effects");
         }
