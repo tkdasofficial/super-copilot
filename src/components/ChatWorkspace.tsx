@@ -154,10 +154,10 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       return;
     }
 
-    // Full-Stack web app builder detection
-    const isFullstack = taskMode === "fullstack" || /\b(build|create|make|generate)\b.*\b(web\s*app|website|landing\s*page|dashboard|portfolio|SPA|single.page.app)\b/i.test(content);
+    // Agent mode: web apps & games (2D/3D) builder detection
+    const isAgent = taskMode === "agent" || /\b(build|create|make|generate)\b.*\b(web\s*app|website|landing\s*page|dashboard|portfolio|SPA|single.page.app|game|2d|3d|platformer|rpg|puzzle|arcade|shooter)\b/i.test(content);
 
-    if (isFullstack) {
+    if (isAgent) {
       try {
         // Gather existing project state from previous messages
         const lastWebApp = [...messages].reverse().find((m) => m.webApp)?.webApp;

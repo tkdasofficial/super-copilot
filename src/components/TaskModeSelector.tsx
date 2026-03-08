@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Plus, MessageSquare, Brain, Code, Paintbrush, Hammer, Video, Clapperboard } from "lucide-react";
+import { Plus, MessageSquare, Brain, Code, Paintbrush, Clapperboard, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type TaskMode = "general" | "reasoning" | "developer" | "designer" | "video" | "fullstack";
+export type TaskMode = "general" | "reasoning" | "developer" | "designer" | "video" | "agent";
 
 type TaskModeOption = {
   id: TaskMode;
@@ -18,7 +18,7 @@ const TASK_MODES: TaskModeOption[] = [
   { id: "developer", label: "Developer", icon: Code, description: "Write, review & debug code" },
   { id: "designer", label: "Designer", icon: Paintbrush, description: "Generate images & visual content" },
   { id: "video", label: "Video", icon: Clapperboard, description: "Create short-form & long-form videos" },
-  { id: "fullstack", label: "Full-Stack", icon: Hammer, description: "Build complete web applications" },
+  { id: "agent", label: "Agent", icon: Bot, description: "Build apps & games (2D/3D)" },
 ];
 
 type Props = {
