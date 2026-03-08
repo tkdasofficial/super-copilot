@@ -629,6 +629,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const title = `Convert: ${file.name}`;
       const newId = addChat(title, `Convert ${file.name}`, tool?.id);
       setChatId(newId);
+      setChatTitle(title);
     }
 
     setMessages((prev) => [...prev, {
