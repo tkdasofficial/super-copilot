@@ -18,12 +18,13 @@ AVAILABLE TOOLS:
 
 RULES:
 1. Each step must use exactly ONE tool
-2. Steps execute sequentially - each step can reference results from previous steps
-3. Keep steps focused and atomic
-4. The "prompt" field should be a complete, standalone instruction for that tool
-5. Use {{step_N}} syntax to reference output from step N (e.g. "Using the ideas from {{step_1}}, write a script")
-6. Maximum 10 steps
-7. Provide a brief title for the overall plan
+2. Steps can run in PARALLEL when they don't depend on each other
+3. Use "dependsOn" array to specify which step IDs must complete first
+4. Steps without dependsOn (or empty array) and without {{step_N}} refs can run in parallel
+5. The "prompt" field should be a complete, standalone instruction for that tool
+6. Use {{step_N}} syntax to reference output from step N (e.g. "Using the ideas from {{step_1}}, write a script")
+7. Maximum 10 steps
+8. Provide a brief title for the overall plan
 
 Return ONLY valid JSON in this exact format:
 {
@@ -33,7 +34,8 @@ Return ONLY valid JSON in this exact format:
       "id": 1,
       "tool": "chat",
       "label": "Short step description (max 6 words)",
-      "prompt": "Complete prompt for this tool"
+      "prompt": "Complete prompt for this tool",
+      "dependsOn": []
     }
   ]
 }`;
