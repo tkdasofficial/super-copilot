@@ -424,6 +424,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             {message.generatedFile && (
               <FileCreatorCard file={message.generatedFile} />
             )}
+            {message.agentPlan && (
+              <AgentProgressCard plan={message.agentPlan} />
+            )}
 
             {/* Action bar */}
             {message.content && typingDone && (
