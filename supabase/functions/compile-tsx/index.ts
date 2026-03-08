@@ -156,25 +156,88 @@ function resolveImport(importPath: string, fromPath: string, files: ProjectFile[
   return null;
 }
 
-/* ── Parse imports from a file to build dependency graph ── */
-function parseImports(code: string): Array<{ defaultImport: string | null; namedImports: string[]; path: string }> {
-  const imports: Array<{ defaultImport: string | null; namedImports: string[]; path: string }> = [];
-  
+type ParsedImport = {
+  defaultImport: string | null;
+  namedImports: Array<{ imported: string; local: string }>;
+  path: string;
+};
+
+type ModuleBindings = {
+  defaultNames: Set<string>;
+  namedBindings: Map<string, string>; // localName -> exportedName
+};
+
+function isValidIdentifier(name: string): boolean {
+  return /^[A-Za-z_$][\w$]*$/.test(name);
+}
+
+/* ── Parse imports from a file to build dependency graph and symbol bindings ── */
+function parseImports(code: string): ParsedImport[] {
+  const imports: ParsedImport[] = [];
+
   // import Default from './path'
-  // import { Named1, Named2 } from './path'
+  // import { Named1, Named2 as Alias } from './path'
   // import Default, { Named } from './path'
-  const importRegex = /^import\s+(?:(?:(\w+)(?:\s*,\s*)?)?(?:\{([^}]*)\})?\s+from\s+)?['"]([^'"]+)['"];?\s*$/gm;
-  let m;
+  const importRegex = /^\s*import\s+(?:(?:(\w+)(?:\s*,\s*)?)?(?:\{([^}]*)\})?\s*from\s*)?['"]([^'"]+)['"];?\s*$/gm;
+  let m: RegExpExecArray | null;
+
   while ((m = importRegex.exec(code)) !== null) {
+    const statement = m[0];
+    if (/^\s*import\s+type\b/.test(statement)) continue;
+
     const defaultImport = m[1] || null;
-    const namedImports = m[2] ? m[2].split(",").map(s => s.trim().split(/\s+as\s+/).pop()!.trim()).filter(Boolean) : [];
+    const namedImports = (m[2] || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((token) => {
+        const [importedRaw, localRaw] = token.split(/\s+as\s+/).map((s) => s.trim());
+        const imported = importedRaw || "";
+        const local = localRaw || imported;
+        return { imported, local };
+      })
+      .filter((item) => item.imported && item.local);
+
     const path = m[3];
-    // Only process local imports (starting with . or src/)
     if (path.startsWith(".") || path.startsWith("src/")) {
       imports.push({ defaultImport, namedImports, path });
     }
   }
+
   return imports;
+}
+
+function collectModuleBindings(files: ProjectFile[]): Map<string, ModuleBindings> {
+  const bindings = new Map<string, ModuleBindings>();
+
+  for (const file of files) {
+    const imports = parseImports(file.content);
+    for (const imp of imports) {
+      const resolved = resolveImport(imp.path, file.path, files);
+      if (!resolved) continue;
+
+      const key = normalizePath(resolved.path);
+      if (!bindings.has(key)) {
+        bindings.set(key, {
+          defaultNames: new Set<string>(),
+          namedBindings: new Map<string, string>(),
+        });
+      }
+
+      const current = bindings.get(key)!;
+      if (imp.defaultImport && isValidIdentifier(imp.defaultImport)) {
+        current.defaultNames.add(imp.defaultImport);
+      }
+
+      for (const named of imp.namedImports) {
+        if (isValidIdentifier(named.local) && isValidIdentifier(named.imported)) {
+          current.namedBindings.set(named.local, named.imported);
+        }
+      }
+    }
+  }
+
+  return bindings;
 }
 
 /* ── Build import map for CDN deps ── */
