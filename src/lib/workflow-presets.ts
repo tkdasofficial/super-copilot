@@ -5,16 +5,14 @@
 
 import {
   Video, Code2, FileText, Search, Zap, FolderOpen, Briefcase, User,
-  Youtube, Scissors, Image, Subtitles, Hash, Podcast, PenTool, Share2,
-  Smile, Music, Volume2, Film, BookOpen,
-  Bug, Gauge, HelpCircle, GitBranch, Server, Database, Globe, Chrome, Smartphone, Container, Rocket,
-  FileSpreadsheet, Presentation, Receipt, Scale, GraduationCap, ClipboardList, Layout, Calculator,
-  Brain, Newspaper, MessageSquare, FileSearch, Filter, ShieldCheck, Library, Bookmark, Quote,
-  Workflow, Clock, Bot, Mail, TrendingUp, Cpu, Globe2, BarChart3,
-  FileType, ScanText, Mic, ArrowUpCircle, Eraser, Palette, Layers,
-  Megaphone, Target, PenSquare, Rocket as RocketBiz, LineChart, Lightbulb,
-  Calendar, Bell, NotebookPen, Headphones,
-  Store, Users, Tag, LayoutTemplate, Network,
+  Youtube, Scissors, Image, Share2, PenTool,
+  Globe, Server, Database, Layout,
+  Presentation, Scale,
+  Brain, BookOpen,
+  Workflow, TrendingUp,
+  Palette, Layers,
+  Megaphone, Rocket as RocketBiz,
+  Calendar, Mail,
   type LucideIcon,
 } from "lucide-react";
 
