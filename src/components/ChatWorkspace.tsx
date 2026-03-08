@@ -8,6 +8,7 @@ import ChatMessage from "./ChatMessage";
 import EmptyState from "./EmptyState";
 import TypingIndicator, { detectPhase, type ThinkingPhase } from "./TypingIndicator";
 import { detectAspectRatio } from "@/lib/detect-aspect-ratio";
+import { analyzeZip } from "@/lib/zip-analyzer";
 import type { TaskMode } from "./TaskModeSelector";
 type Props = {
   tool?: AITool;
