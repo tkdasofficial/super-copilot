@@ -18,21 +18,18 @@ import {
   X,
   CheckCircle2,
   Circle,
-  Clock,
-  Maximize2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { buildPreviewHTML, type WebAppProject, type GeneratedFile } from "@/lib/web-preview-engine";
+import { compileProject, buildPreviewHTML, type WebAppProject, type GeneratedFile } from "@/lib/web-preview-engine";
 import { downloadProjectAsZip } from "@/lib/zip-export";
 import { toast } from "sonner";
 
-type Phase = "generating" | "building" | "ready" | "error";
+type Phase = "compiling" | "ready" | "error";
 type Viewport = "desktop" | "tablet" | "mobile";
 type ConsoleEntry = { level: "log" | "warn" | "error"; message: string; ts: number };
-type BuildStep = {
-  label: string;
-  status: "done" | "in_progress" | "pending";
-};
+type StepStatus = "done" | "in_progress" | "pending" | "error";
+type BuildStep = { label: string; status: StepStatus };
 
 const VIEWPORT_SIZES: Record<Viewport, number> = {
   desktop: 0,
@@ -40,18 +37,17 @@ const VIEWPORT_SIZES: Record<Viewport, number> = {
   mobile: 375,
 };
 
-type Props = {
-  project: WebAppProject;
-};
+type Props = { project: WebAppProject };
 
-const StepIcon = ({ status }: { status: BuildStep["status"] }) => {
+const StepIcon = ({ status }: { status: StepStatus }) => {
   if (status === "done") return <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />;
   if (status === "in_progress") return <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />;
+  if (status === "error") return <AlertCircle className="w-4 h-4 text-destructive shrink-0" />;
   return <Circle className="w-4 h-4 text-muted-foreground/40 shrink-0" />;
 };
 
 const WebAppPreviewCard = ({ project }: Props) => {
-  const [phase, setPhase] = useState<Phase>("building");
+  const [phase, setPhase] = useState<Phase>("compiling");
   const [previewHTML, setPreviewHTML] = useState<string>("");
   const [editedFiles, setEditedFiles] = useState<Record<string, string>>({});
   const [selectedFile, setSelectedFile] = useState<string>(project.files[0]?.path || "");
@@ -61,11 +57,18 @@ const WebAppPreviewCard = ({ project }: Props) => {
   const [consoleLogs, setConsoleLogs] = useState<ConsoleEntry[]>([]);
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [expandedView, setExpandedView] = useState<"code" | "console" | null>(null);
-  const [buildSteps, setBuildSteps] = useState<BuildStep[]>([]);
+  const [buildSteps, setBuildSteps] = useState<BuildStep[]>([
+    { label: "Analyzing project structure", status: "in_progress" },
+    { label: `Setting up ${project.framework}`, status: "pending" },
+    { label: `Processing ${project.files.length} files`, status: "pending" },
+    { label: "Compiling TypeScript & JSX", status: "pending" },
+    { label: "Bundling & building preview", status: "pending" },
+  ]);
+  const [compileWarnings, setCompileWarnings] = useState<string[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const fullIframeRef = useRef<HTMLIFrameElement>(null);
+  const compiledOnce = useRef(false);
 
-  // Merge edited files with project files
   const currentFiles = useMemo(() => {
     return project.files.map((f) => ({
       ...f,
@@ -73,52 +76,114 @@ const WebAppPreviewCard = ({ project }: Props) => {
     }));
   }, [project.files, editedFiles]);
 
-  // Simulate build steps
+  // Update step helper
+  const updateStep = useCallback((index: number, status: StepStatus) => {
+    setBuildSteps(prev => prev.map((s, i) => i === index ? { ...s, status } : s));
+  }, []);
+
+  // Compile project using backend
   useEffect(() => {
-    const steps: BuildStep[] = [
-      { label: "Analyzing project structure", status: "done" },
-      { label: `Setting up ${project.framework} framework`, status: "done" },
-      { label: `Processing ${currentFiles.length} files`, status: "in_progress" },
-      { label: `Installing ${Object.keys(project.dependencies).length} dependencies`, status: "pending" },
-      { label: "Building preview", status: "pending" },
-    ];
-    setBuildSteps(steps);
+    if (compiledOnce.current) return;
+    compiledOnce.current = true;
 
-    const timers: ReturnType<typeof setTimeout>[] = [];
-    timers.push(setTimeout(() => {
-      setBuildSteps(s => s.map((st, i) => i === 2 ? { ...st, status: "done" } : i === 3 ? { ...st, status: "in_progress" } : st));
-    }, 400));
-    timers.push(setTimeout(() => {
-      setBuildSteps(s => s.map((st, i) => i === 3 ? { ...st, status: "done" } : i === 4 ? { ...st, status: "in_progress" } : st));
-    }, 800));
-    timers.push(setTimeout(() => {
-      setBuildSteps(s => s.map((st) => ({ ...st, status: "done" as const })));
-    }, 1200));
+    const run = async () => {
+      // Step 0: Analyze
+      updateStep(0, "done");
+      await delay(300);
 
-    return () => timers.forEach(clearTimeout);
-  }, [project.framework, currentFiles.length, project.dependencies]);
+      // Step 1: Framework setup
+      updateStep(1, "in_progress");
+      await delay(300);
+      updateStep(1, "done");
 
-  // Build preview
-  const rebuildPreview = useCallback(() => {
+      // Step 2: Processing files
+      updateStep(2, "in_progress");
+      await delay(200);
+      updateStep(2, "done");
+
+      // Step 3: Compiling
+      updateStep(3, "in_progress");
+
+      const result = await compileProject(
+        currentFiles,
+        project.framework,
+        project.dependencies,
+        project.entryPoint,
+        (step) => console.log("[Compiler]", step),
+      );
+
+      if (result.success && result.html) {
+        updateStep(3, "done");
+
+        // Step 4: Building preview
+        updateStep(4, "in_progress");
+        await delay(300);
+        setPreviewHTML(result.html);
+        updateStep(4, "done");
+        setPhase("ready");
+
+        if (result.warnings?.length) {
+          setCompileWarnings(result.warnings);
+        }
+      } else {
+        updateStep(3, "error");
+        // Fallback to client-side
+        try {
+          const html = buildPreviewHTML(currentFiles, project.framework, project.dependencies);
+          setPreviewHTML(html);
+          updateStep(4, "done");
+          setPhase("ready");
+          setCompileWarnings([result.error || "Used fallback compiler"]);
+        } catch {
+          updateStep(4, "error");
+          setPhase("error");
+        }
+      }
+    };
+
+    run();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Rebuild on edits (client-side only for speed)
+  const handleRebuild = useCallback(() => {
     try {
       const html = buildPreviewHTML(currentFiles, project.framework, project.dependencies);
       setPreviewHTML(html);
       setPhase("ready");
-    } catch (err) {
-      console.error("Preview build failed:", err);
+    } catch {
       setPhase("error");
     }
   }, [currentFiles, project.framework, project.dependencies]);
 
-  useEffect(() => {
-    rebuildPreview();
-  }, [rebuildPreview]);
+  // Re-compile with backend when edits are applied
+  const handleRecompile = useCallback(async () => {
+    setPhase("compiling");
+    setBuildSteps(prev => prev.map((s, i) =>
+      i < 3 ? { ...s, status: "done" } :
+      i === 3 ? { ...s, status: "in_progress" } :
+      { ...s, status: "pending" }
+    ));
 
-  // Listen for console messages from iframe
+    const result = await compileProject(currentFiles, project.framework, project.dependencies);
+
+    if (result.success && result.html) {
+      updateStep(3, "done");
+      updateStep(4, "in_progress");
+      await delay(200);
+      setPreviewHTML(result.html);
+      updateStep(4, "done");
+      setPhase("ready");
+    } else {
+      updateStep(3, "error");
+      handleRebuild();
+    }
+  }, [currentFiles, project.framework, project.dependencies, updateStep, handleRebuild]);
+
+  // Console messages from iframe
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type === "console") {
-        setConsoleLogs((prev) => [
+        setConsoleLogs(prev => [
           ...prev.slice(-99),
           { level: e.data.level, message: e.data.message, ts: Date.now() },
         ]);
@@ -137,24 +202,21 @@ const WebAppPreviewCard = ({ project }: Props) => {
     }
   }, [currentFiles, project.framework, project.dependencies]);
 
-  const handleCopyFile = useCallback(
-    (filePath: string) => {
-      const file = currentFiles.find((f) => f.path === filePath);
-      if (file) {
-        navigator.clipboard.writeText(file.content);
-        setCopiedFile(filePath);
-        setTimeout(() => setCopiedFile(null), 2000);
-      }
-    },
-    [currentFiles]
-  );
+  const handleCopyFile = useCallback((filePath: string) => {
+    const file = currentFiles.find((f) => f.path === filePath);
+    if (file) {
+      navigator.clipboard.writeText(file.content);
+      setCopiedFile(filePath);
+      setTimeout(() => setCopiedFile(null), 2000);
+    }
+  }, [currentFiles]);
 
   const handleFileEdit = useCallback((path: string, content: string) => {
-    setEditedFiles((prev) => ({ ...prev, [path]: content }));
+    setEditedFiles(prev => ({ ...prev, [path]: content }));
   }, []);
 
   const handleResetFile = useCallback((path: string) => {
-    setEditedFiles((prev) => {
+    setEditedFiles(prev => {
       const next = { ...prev };
       delete next[path];
       return next;
@@ -169,7 +231,6 @@ const WebAppPreviewCard = ({ project }: Props) => {
 
   return (
     <>
-      {/* Task-style card */}
       <div className="rounded-xl border border-border bg-card overflow-hidden max-w-2xl w-full">
         {/* Header */}
         <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-border bg-muted/30">
@@ -180,45 +241,67 @@ const WebAppPreviewCard = ({ project }: Props) => {
               {project.framework}
             </span>
           </div>
-          {phase === "ready" && (
-            <button
-              onClick={handleDownload}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-              title="Download ZIP"
-            >
-              <Download className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {phase === "ready" && hasEdits && (
+              <button
+                onClick={handleRecompile}
+                className="text-[10px] px-2 py-1 rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-medium"
+              >
+                Recompile
+              </button>
+            )}
+            {phase === "ready" && (
+              <button
+                onClick={handleDownload}
+                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                title="Download ZIP"
+              >
+                <Download className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Build steps list */}
-        <div className="px-3 sm:px-4 py-3 space-y-1.5">
+        {/* Build steps */}
+        <div className="px-3 sm:px-4 py-3 space-y-1">
           {buildSteps.map((step, i) => (
             <div
               key={i}
               className={cn(
                 "flex items-center gap-2.5 py-1.5 px-2 rounded-lg transition-all duration-300",
                 step.status === "in_progress" && "bg-primary/5",
-                step.status === "done" && "opacity-80",
               )}
             >
               <StepIcon status={step.status} />
               <span className={cn(
                 "text-xs sm:text-[13px] transition-colors",
-                step.status === "done" && "text-foreground",
+                step.status === "done" && "text-foreground/70",
                 step.status === "in_progress" && "text-foreground font-medium",
                 step.status === "pending" && "text-muted-foreground",
+                step.status === "error" && "text-destructive",
               )}>
                 {step.label}
               </span>
               {step.status === "in_progress" && (
-                <span className="text-[10px] text-primary ml-auto">working...</span>
+                <span className="text-[10px] text-primary ml-auto animate-pulse">compiling...</span>
               )}
             </div>
           ))}
+
+          {/* Warnings */}
+          {compileWarnings.length > 0 && allStepsDone && (
+            <div className="mt-2 px-2 py-1.5 rounded-lg bg-accent/50 text-[11px] text-muted-foreground">
+              {compileWarnings.map((w, i) => (
+                <div key={i} className="flex items-start gap-1.5">
+                  <span className="text-yellow-500 shrink-0">⚠</span>
+                  <span className="break-words">{w}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Action buttons row */}
+        {/* Action buttons */}
         {allStepsDone && phase === "ready" && (
           <div className="px-3 sm:px-4 pb-3 pt-1 flex flex-wrap gap-2">
             <button
@@ -265,7 +348,6 @@ const WebAppPreviewCard = ({ project }: Props) => {
         {expandedView === "code" && (
           <div className="border-t border-border">
             <div className="flex h-[300px] sm:h-[350px]">
-              {/* File tree sidebar */}
               <div className="w-36 sm:w-44 shrink-0 border-r border-border overflow-y-auto bg-muted/20">
                 <div className="py-1">
                   {fileTree.map((node) => (
@@ -280,7 +362,6 @@ const WebAppPreviewCard = ({ project }: Props) => {
                   ))}
                 </div>
               </div>
-              {/* Code viewer */}
               <div className="flex-1 overflow-hidden flex flex-col min-w-0">
                 {currentFile && (
                   <>
@@ -342,7 +423,7 @@ const WebAppPreviewCard = ({ project }: Props) => {
           </div>
         )}
 
-        {/* Expandable console panel */}
+        {/* Console panel */}
         {expandedView === "console" && (
           <div className="border-t border-border h-[200px] sm:h-[250px] overflow-y-auto bg-background p-2">
             {consoleLogs.length === 0 ? (
@@ -390,10 +471,9 @@ const WebAppPreviewCard = ({ project }: Props) => {
         </div>
       </div>
 
-      {/* Full-screen in-app preview overlay */}
+      {/* Full-screen preview overlay */}
       {showFullPreview && (
         <div className="fixed inset-0 z-50 bg-background flex flex-col animate-fade-in">
-          {/* Preview header */}
           <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-border bg-muted/30 shrink-0">
             <div className="flex items-center gap-2">
               <Hammer className="w-4 h-4 text-primary" />
@@ -403,7 +483,6 @@ const WebAppPreviewCard = ({ project }: Props) => {
               </span>
             </div>
             <div className="flex items-center gap-1">
-              {/* Viewport toggles */}
               {([
                 { id: "desktop" as Viewport, icon: Monitor },
                 { id: "tablet" as Viewport, icon: Tablet },
@@ -433,7 +512,6 @@ const WebAppPreviewCard = ({ project }: Props) => {
               </button>
             </div>
           </div>
-          {/* Preview iframe */}
           <div className="flex-1 flex justify-center bg-accent/20 overflow-hidden">
             <div
               className="h-full bg-background transition-all duration-300"
@@ -442,20 +520,13 @@ const WebAppPreviewCard = ({ project }: Props) => {
                 maxWidth: "100%",
               }}
             >
-              {phase === "ready" ? (
-                <iframe
-                  ref={fullIframeRef}
-                  srcDoc={previewHTML}
-                  sandbox="allow-scripts"
-                  className="w-full h-full border-0"
-                  title="Web App Full Preview"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Building...</span>
-                </div>
-              )}
+              <iframe
+                ref={fullIframeRef}
+                srcDoc={previewHTML}
+                sandbox="allow-scripts"
+                className="w-full h-full border-0"
+                title="Web App Full Preview"
+              />
             </div>
           </div>
         </div>
@@ -464,7 +535,11 @@ const WebAppPreviewCard = ({ project }: Props) => {
   );
 };
 
-// File tree types and component
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// File tree types and helpers
 type FileTreeNodeData = {
   name: string;
   path: string;
@@ -474,16 +549,13 @@ type FileTreeNodeData = {
 
 function buildFileTree(files: GeneratedFile[]): FileTreeNodeData[] {
   const root: FileTreeNodeData[] = [];
-
   for (const file of files) {
     const parts = file.path.split("/");
     let current = root;
-
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
       const isLast = i === parts.length - 1;
       const fullPath = parts.slice(0, i + 1).join("/");
-
       let existing = current.find((n) => n.name === part);
       if (!existing) {
         existing = { name: part, path: fullPath, isDir: !isLast, children: [] };
@@ -492,7 +564,6 @@ function buildFileTree(files: GeneratedFile[]): FileTreeNodeData[] {
       if (!isLast) current = existing.children;
     }
   }
-
   const sortNodes = (nodes: FileTreeNodeData[]) => {
     nodes.sort((a, b) => {
       if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
@@ -505,11 +576,7 @@ function buildFileTree(files: GeneratedFile[]): FileTreeNodeData[] {
 }
 
 function FileTreeNode({
-  node,
-  selectedFile,
-  onSelect,
-  depth,
-  editedPaths,
+  node, selectedFile, onSelect, depth, editedPaths,
 }: {
   node: FileTreeNodeData;
   selectedFile: string;
@@ -532,17 +599,9 @@ function FileTreeNode({
           <ChevronRight className={cn("w-3 h-3 shrink-0 transition-transform", expanded && "rotate-90")} />
           <span className="truncate">{node.name}</span>
         </button>
-        {expanded &&
-          node.children.map((child) => (
-            <FileTreeNode
-              key={child.path}
-              node={child}
-              selectedFile={selectedFile}
-              onSelect={onSelect}
-              depth={depth + 1}
-              editedPaths={editedPaths}
-            />
-          ))}
+        {expanded && node.children.map((child) => (
+          <FileTreeNode key={child.path} node={child} selectedFile={selectedFile} onSelect={onSelect} depth={depth + 1} editedPaths={editedPaths} />
+        ))}
       </div>
     );
   }
@@ -552,9 +611,7 @@ function FileTreeNode({
       onClick={() => onSelect(node.path)}
       className={cn(
         "w-full flex items-center gap-1 px-2 py-0.5 text-[11px] transition-colors",
-        isSelected
-          ? "bg-accent text-foreground"
-          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+        isSelected ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
       )}
       style={{ paddingLeft: `${depth * 12 + 8}px` }}
     >
