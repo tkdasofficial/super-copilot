@@ -12,6 +12,9 @@ const Account = () => {
   const { profile, user } = useAuth();
   const [name, setName] = useState(profile?.full_name || "");
   const [sub, setSub] = useState<any>(null);
+  const [twoFAEnabled, setTwoFAEnabled] = useState(false);
+  const [twoFALoading, setTwoFALoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   useEffect(() => {
     if (profile) setName(profile.full_name || "");
