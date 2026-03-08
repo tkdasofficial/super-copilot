@@ -14,7 +14,7 @@ type Props = {
   chatHistory: { id: string; title: string; toolId?: string }[];
 };
 
-const MobileSidebar = ({ open, onClose, onNewChat, isMainChat, chatHistory }: Props) => {
+const MobileSidebar = ({ open, onClose, onNewChat, onSelectChat, isMainChat, chatHistory }: Props) => {
   const navigate = useNavigate();
   const { renameChat, deleteChat } = useChatHistory();
   const [editingId, setEditingId] = useState<string | null>(null);
