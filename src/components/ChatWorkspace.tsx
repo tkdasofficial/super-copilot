@@ -231,7 +231,9 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       || /\b(create|make|generate|build)\b.*\b(excel|spreadsheet|sheet|workbook)\b/i.test(content);
 
     if (isFileCreate && !isAgent) {
-      const detectedFormat = fileFormatMatch?.[1]?.toLowerCase() || "txt";
+      const fmMatch = fileFormatMatch?.[1]?.toLowerCase();
+      const isExcelKeyword = /\b(excel|spreadsheet|sheet|workbook)\b/i.test(content);
+      const detectedFormat = isExcelKeyword && (!fmMatch || ["excel","spreadsheet","sheet","workbook"].includes(fmMatch)) ? "xlsx" : (fmMatch || "txt");
 
       try {
         setThinkingPhase("working");
