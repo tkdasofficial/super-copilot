@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu } from "lucide-react";
 import type { AITool, ChatMessage as ChatMessageType } from "@/lib/types";
+import ProfileMenu from "./ProfileMenu";
 import { useChatHistory } from "@/context/ChatHistoryContext";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
@@ -287,7 +288,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
           {tool && <tool.icon className="w-4 h-4 text-foreground" />}
           <h2 className="text-sm font-display font-semibold text-foreground">{title}</h2>
         </div>
-        <div className="w-9 lg:hidden" />
+        <ProfileMenu />
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto">

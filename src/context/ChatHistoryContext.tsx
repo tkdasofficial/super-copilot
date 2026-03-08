@@ -32,19 +32,8 @@ const getDateLabel = (ts: number): string => {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
-const INITIAL_HISTORY: ChatHistoryItem[] = [
-  { id: "1", title: "AI tools for creators script", toolId: "script-writer", preview: "Write a 10-minute YouTube script about AI tools", date: "Today", createdAt: Date.now() - 3600000, messages: [] },
-  { id: "2", title: "Tech review thumbnail", toolId: "thumbnail-designer", preview: "Design a thumbnail for a tech review video", date: "Today", createdAt: Date.now() - 7200000, messages: [] },
-  { id: "3", title: "Gaming channel SEO", toolId: "seo-optimizer", preview: "Optimize SEO for my gaming channel", date: "Yesterday", createdAt: Date.now() - 90000000, messages: [] },
-  { id: "4", title: "Horror story narration", toolId: "script-writer", preview: "Create a horror story narration script with suspense hooks", date: "Yesterday", createdAt: Date.now() - 100000000, messages: [] },
-  { id: "5", title: "Productivity hacks short", toolId: "content-optimizer", preview: "Generate a full content package for productivity", date: "Mar 4", createdAt: Date.now() - 200000000, messages: [] },
-  { id: "6", title: "Blockchain explainer", toolId: "script-writer", preview: "Write an educational explainer script about blockchain", date: "Mar 3", createdAt: Date.now() - 300000000, messages: [] },
-  { id: "7", title: "Fitness transformation SEO", toolId: "seo-optimizer", preview: "Create a full SEO package for a fitness video", date: "Mar 2", createdAt: Date.now() - 400000000, messages: [] },
-  { id: "8", title: "Fantasy story illustrations", toolId: "image-generator", preview: "Design an illustration for a fantasy story video", date: "Mar 1", createdAt: Date.now() - 500000000, messages: [] },
-];
-
 export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
-  const [history, setHistory] = useState<ChatHistoryItem[]>(INITIAL_HISTORY);
+  const [history, setHistory] = useState<ChatHistoryItem[]>([]);
 
   const addChat = useCallback((title: string, preview: string, toolId?: string) => {
     const id = Date.now().toString();
