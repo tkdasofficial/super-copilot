@@ -1,19 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Download, Film, Sparkles, ImageIcon, Volume2, Clapperboard,
-  CheckCircle2, AlertCircle, Loader2, Clock, Package, ChevronDown, ChevronUp,
-  Scissors, RefreshCw,
+  CheckCircle2, AlertCircle, Loader2, Clock, ChevronDown, ChevronUp,
+  Scissors,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
-  type VideoProject, type SceneState, type EditorProgress, type EditorTask, type EditorTaskStatus,
+  type VideoProject, type EditorProgress, type EditorTask, type EditorTaskStatus,
   applyOperations, renderProject,
 } from "@/lib/video-editor-engine";
-import {
-  generateVideoScript, generateTTS, generateSceneImage,
-  type VideoScript, type PipelineState, type WorkerTask, type TaskStatus,
-} from "@/lib/video-pipeline";
+import { runVideoPipeline, type PipelineState, type WorkerTask, type TaskStatus } from "@/lib/video-pipeline";
+import type { AssemblyScene } from "@/lib/webm-assembler";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -39,7 +37,7 @@ const PHASE_CONFIG: Record<Phase, { icon: typeof Film; label: string }> = {
   error: { icon: AlertCircle, label: "Failed" },
 };
 
-const STATUS_ICON: Record<EditorTaskStatus, typeof CheckCircle2> = {
+const STATUS_ICON: Record<EditorTaskStatus | TaskStatus, typeof CheckCircle2> = {
   pending: Clock,
   working: Loader2,
   done: CheckCircle2,
@@ -50,7 +48,7 @@ const STATUS_ICON: Record<EditorTaskStatus, typeof CheckCircle2> = {
 
 const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVideoReady }: EditorCardProps) => {
   const [phase, setPhase] = useState<Phase>("analyzing");
-  const [tasks, setTasks] = useState<EditorTask[]>([
+  const [tasks, setTasks] = useState<(EditorTask | WorkerTask)[]>([
     { id: "ai-decide", label: "AI Decision", status: "working" },
   ]);
   const [explanation, setExplanation] = useState("");
@@ -69,13 +67,13 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-  const updateTask = (id: string, status: EditorTaskStatus, detail?: string) => {
+  const updateTask = useCallback((id: string, status: EditorTaskStatus, detail?: string) => {
     setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status, detail } : t)));
-  };
+  }, []);
 
-  const addTask = (task: EditorTask) => {
+  const addTask = useCallback((task: EditorTask) => {
     setTasks((prev) => [...prev, task]);
-  };
+  }, []);
 
   // ── Main execution ──
   const execute = useCallback(async () => {
@@ -92,8 +90,6 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
               index: i,
               narration: s.narration,
               duration: s.duration,
-              hasImage: !!s.imageUrl,
-              hasAudio: !!s.audioBase64,
               filters: s.filters,
               textOverlays: s.textOverlays.length,
               speed: s.speed,
@@ -123,7 +119,6 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
       const aiText = data.text || "";
 
       if (toolCalls.length === 0) {
-        // AI responded with text only (no edits needed)
         setExplanation(aiText || "No changes needed.");
         setPhase("done");
         return;
@@ -144,78 +139,54 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
       setError(e.message);
       setPhase("error");
     }
-  }, [userMessage, existingProject]);
+  }, [userMessage, existingProject, updateTask]);
 
-  // ── Generate full video ──
+  // ── Generate full video via server-side pipeline ──
   const handleGenerateVideo = async (args: any) => {
     setPhase("generating");
-    const { topic, duration, aspect_ratio, style } = args;
+    const { topic, duration, aspect_ratio } = args;
 
-    // Script generation
-    addTask({ id: "script", label: "Generate Script", status: "working" });
-    const script = await generateVideoScript(topic, duration || 45, aspect_ratio || "9:16");
-    updateTask("script", "done", `${script.scenes.length} scenes`);
+    try {
+      const url = await runVideoPipeline(
+        topic,
+        duration || 45,
+        aspect_ratio || "9:16",
+        (state: PipelineState) => {
+          // Merge pipeline tasks into our task list
+          setTasks((prev) => {
+            const aiTask = prev.find((t) => t.id === "ai-decide");
+            return [aiTask!, ...state.tasks];
+          });
 
-    // Generate assets for each scene
-    const sceneStates: SceneState[] = [];
-    for (let i = 0; i < script.scenes.length; i++) {
-      const scene = script.scenes[i];
-      const imgTaskId = `gen-img-${i}`;
-      const ttsTaskId = `gen-tts-${i}`;
-      addTask({ id: imgTaskId, label: `Scene ${i + 1} Image`, status: "pending" });
-      addTask({ id: ttsTaskId, label: `Scene ${i + 1} Voice`, status: "pending" });
+          if (state.script) {
+            setExplanation(`Creating "${state.script.title}" with ${state.script.scenes.length} scenes`);
+          }
+
+          if (state.videoUrl) {
+            setVideoUrl(state.videoUrl);
+            onVideoReady?.(state.videoUrl);
+            setPhase("done");
+          }
+
+          if (state.error) {
+            setError(state.error);
+            setPhase("error");
+          }
+        }
+      );
+
+      if (!videoUrl) {
+        setVideoUrl(url);
+        onVideoReady?.(url);
+        setPhase("done");
+      }
+    } catch (e: any) {
+      setError(e.message);
+      setPhase("error");
     }
-
-    const assetResults = await Promise.all(
-      script.scenes.map(async (scene, idx) => {
-        updateTask(`gen-img-${idx}`, "working", "Generating...");
-        updateTask(`gen-tts-${idx}`, "working", "Synthesizing...");
-
-        const [imageUrl, audioBase64] = await Promise.all([
-          generateSceneImage(scene.imagePrompt, aspect_ratio || "9:16").then((url) => {
-            updateTask(`gen-img-${idx}`, "done", "Ready");
-            return url;
-          }).catch((e) => {
-            updateTask(`gen-img-${idx}`, "error", e.message);
-            throw e;
-          }),
-          generateTTS(scene.narration).then((audio) => {
-            updateTask(`gen-tts-${idx}`, "done", "Ready");
-            return audio;
-          }).catch((e) => {
-            updateTask(`gen-tts-${idx}`, "error", e.message);
-            throw e;
-          }),
-        ]);
-
-        return {
-          imageUrl,
-          audioBase64,
-          narration: scene.narration,
-          imagePrompt: scene.imagePrompt,
-          duration: scene.duration,
-          transition: scene.transition || "fade",
-          filters: [],
-          textOverlays: [],
-          speed: 1.0,
-        } as SceneState;
-      })
-    );
-
-    const project: VideoProject = {
-      title: script.title,
-      scenes: assetResults,
-      aspectRatio: aspect_ratio || "9:16",
-    };
-
-    onProjectUpdate?.(project);
-    setExplanation(`Created "${script.title}" with ${script.scenes.length} scenes.`);
-
-    // Render
-    await handleRender(project);
   };
 
-  // ── Apply edits ──
+  // ── Apply edits via server-side ──
   const handleEditVideo = async (args: any) => {
     if (!existingProject) {
       throw new Error("No video project to edit. Create a video first.");
@@ -225,61 +196,88 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
     setExplanation(args.explanation || "Applying edits...");
 
     const operations = args.operations || [];
-    
-    // Add tasks for operations that need API calls
+
+    // Handle regeneration ops via server
     const regenOps = operations.filter((op: any) =>
       op.type === "regenerate_image" || op.type === "regenerate_voice"
     );
 
-    for (let i = 0; i < regenOps.length; i++) {
-      const op = regenOps[i];
-      const taskId = `regen-${i}`;
-      addTask({
-        id: taskId,
-        label: op.type === "regenerate_image"
-          ? `Regenerate Scene ${(op.sceneIndex ?? 0) + 1} Image`
-          : `Regenerate Scene ${(op.sceneIndex ?? 0) + 1} Voice`,
-        status: "working",
+    if (regenOps.length > 0) {
+      for (const op of regenOps) {
+        addTask({
+          id: `regen-${op.type}-${op.sceneIndex ?? 0}`,
+          label: `Regenerate Scene ${(op.sceneIndex ?? 0) + 1}`,
+          status: "working",
+        });
+      }
+
+      // Send regeneration to server
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/video-render`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_KEY}`,
+        },
+        body: JSON.stringify({
+          action: "edit",
+          editOps: regenOps,
+          projectState: { aspectRatio: existingProject.aspectRatio },
+        }),
       });
 
-      try {
-        const sceneIdx = op.sceneIndex ?? 0;
-        if (op.type === "regenerate_image" && op.params.newPrompt) {
-          const newUrl = await generateSceneImage(op.params.newPrompt, existingProject.aspectRatio);
-          existingProject.scenes[sceneIdx].imageUrl = newUrl;
-          existingProject.scenes[sceneIdx].imagePrompt = op.params.newPrompt;
-        } else if (op.type === "regenerate_voice" && op.params.newNarration) {
-          const newAudio = await generateTTS(op.params.newNarration);
-          existingProject.scenes[sceneIdx].audioBase64 = newAudio;
-          existingProject.scenes[sceneIdx].narration = op.params.newNarration;
+      if (resp.ok && resp.body) {
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          let idx: number;
+          while ((idx = buffer.indexOf("\n")) !== -1) {
+            let line = buffer.slice(0, idx);
+            buffer = buffer.slice(idx + 1);
+            if (line.endsWith("\r")) line = line.slice(0, -1);
+            if (!line.startsWith("data: ")) continue;
+
+            try {
+              const event = JSON.parse(line.slice(6).trim());
+              if (event.type === "task_update") {
+                const existing = tasks.find((t) => t.id === event.id);
+                if (existing) {
+                  updateTask(event.id, event.status, event.detail);
+                }
+              }
+              if (event.type === "edit_complete") {
+                // Apply results back to project
+                for (const op of event.operations) {
+                  if (op._result) {
+                    const sceneIdx = op.sceneIndex ?? 0;
+                    if (op._result.imageUrl) existingProject.scenes[sceneIdx].imageUrl = op._result.imageUrl;
+                    if (op._result.audioBase64) existingProject.scenes[sceneIdx].audioBase64 = op._result.audioBase64;
+                  }
+                }
+              }
+            } catch {}
+          }
         }
-        updateTask(taskId, "done");
-      } catch (e: any) {
-        updateTask(taskId, "error", e.message);
       }
     }
 
-    // Apply non-API operations
+    // Apply non-API operations locally
     const nonApiOps = operations.filter((op: any) =>
       op.type !== "regenerate_image" && op.type !== "regenerate_voice"
     );
     const updatedProject = applyOperations(existingProject, nonApiOps);
     onProjectUpdate?.(updatedProject);
 
-    // Render
-    await handleRender(updatedProject);
-  };
-
-  // ── Render ──
-  const handleRender = async (project: VideoProject) => {
+    // Render via native WebM assembler
     setPhase("rendering");
-
-    const url = await renderProject(project, (progress) => {
-      // Merge render tasks into our task list
+    const url = await renderProject(updatedProject, (progress) => {
       setTasks((prev) => {
-        const nonRender = prev.filter(
-          (t) => !t.id.startsWith("render-") && t.id !== "merge" && t.id !== "export"
-        );
+        const nonRender = prev.filter((t) => !t.id.startsWith("assemble") && t.id !== "export");
         return [...nonRender, ...progress.tasks];
       });
     });
@@ -306,7 +304,7 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
     if (!videoUrl) return;
     const a = document.createElement("a");
     a.href = videoUrl;
-    a.download = `edited_video_${Date.now()}.mp4`;
+    a.download = `video_${Date.now()}.webm`;
     a.click();
   };
 
@@ -317,11 +315,8 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
         <div className="flex items-center gap-2">
           <Scissors className="w-4 h-4 text-foreground" />
           <span className="text-sm font-semibold text-foreground">AI Video Editor</span>
-          <span className="ml-auto text-[11px] font-mono text-muted-foreground">
-            {formatTime(elapsed)}
-          </span>
+          <span className="ml-auto text-[11px] font-mono text-muted-foreground">{formatTime(elapsed)}</span>
         </div>
-        {/* Phase indicator */}
         <div className="flex items-center gap-2 mt-2">
           {phase === "done" || phase === "error" ? (
             <PhaseIcon className={cn("w-3.5 h-3.5", phase === "done" ? "text-emerald-500" : "text-destructive")} />
@@ -330,9 +325,7 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
           )}
           <span className="text-xs font-medium text-foreground">{phaseConfig.label}</span>
           {tasks.length > 0 && (
-            <span className="text-[10px] text-muted-foreground ml-auto">
-              {doneCount}/{tasks.length}
-            </span>
+            <span className="text-[10px] text-muted-foreground ml-auto">{doneCount}/{tasks.length}</span>
           )}
         </div>
       </div>
@@ -368,11 +361,7 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
             <Clapperboard className="w-3.5 h-3.5 text-muted-foreground" />
             <span className="text-xs font-medium text-foreground flex-1 text-left">Tasks</span>
             <span className="text-[10px] text-muted-foreground">{doneCount}/{tasks.length}</span>
-            {expandTasks ? (
-              <ChevronUp className="w-3 h-3 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="w-3 h-3 text-muted-foreground" />
-            )}
+            {expandTasks ? <ChevronUp className="w-3 h-3 text-muted-foreground" /> : <ChevronDown className="w-3 h-3 text-muted-foreground" />}
           </button>
 
           {expandTasks && (
@@ -440,7 +429,7 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
           >
             <Download className="w-4 h-4" />
-            Download MP4
+            Download WebM
           </button>
         </div>
       )}
