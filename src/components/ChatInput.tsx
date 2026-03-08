@@ -181,7 +181,7 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled }: P
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*,.zip,application/zip"
+                accept="image/*,.zip,application/zip,video/*,audio/*,.txt,.pdf,.html,.md,.csv,.json,.xml,.mp4,.webm,.avi,.mov,.mkv,.mp3,.wav,.ogg,.aac,.flac,.m4a,.bmp,.gif,.ico,.svg,.webp"
                 onChange={handleFileSelect}
                 className="hidden"
               />
