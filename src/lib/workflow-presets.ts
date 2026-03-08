@@ -218,13 +218,6 @@ export const STUDIO_CATEGORIES: StudioCategory[] = [
         prompt: "Create a comprehensive business plan for [business idea]. Include executive summary, market analysis, competitive landscape, business model, marketing strategy, financial projections (3 years), and team structure. Then create a pitch deck outline. Then export as a PDF.",
       },
       {
-        id: "seo-package",
-        name: "SEO Package",
-        description: "Full SEO strategy & content",
-        icon: LineChart,
-        prompt: "Create a complete SEO package for [website/business]. Research top keywords (20+) with search volume estimates. Then create an SEO content strategy. Then write 3 SEO-optimized blog post outlines. Then generate meta titles and descriptions for 10 pages. Then export as a comprehensive report.",
-      },
-      {
         id: "product-launch",
         name: "Product Launch Kit",
         description: "Everything for a product launch",
