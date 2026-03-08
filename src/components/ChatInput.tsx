@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
 import { ArrowUp, Paperclip, Mic, MicOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TaskModeSelector, { type TaskMode } from "./TaskModeSelector";
@@ -139,7 +139,7 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled }: P
     e.target.value = "";
   };
 
-  // Animated dots for placeholder
+  // Animated dots for prompt hint
   const [dotCount, setDotCount] = useState(0);
   useEffect(() => {
     const interval = setInterval(() => {
@@ -148,7 +148,7 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled }: P
     return () => clearInterval(interval);
   }, []);
 
-  const placeholder = `Ask Copilot${".".repeat(dotCount)}`;
+  const animatedDots = ".".repeat(dotCount);
 
   return (
     <div className="w-full px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
@@ -174,15 +174,22 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled }: P
           )}
 
           {/* Textarea — grows vertically, shape stays the same */}
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => { setValue(e.target.value); autoResize(); }}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            rows={1}
-            className="w-full bg-transparent text-foreground text-[15px] placeholder:text-muted-foreground resize-none outline-none min-h-[44px] max-h-[200px] py-3 px-4"
-          />
+          <div className="relative">
+            {!value && (
+              <span className="pointer-events-none absolute left-4 top-3 text-[15px] text-muted-foreground select-none">
+                Ask Copilot{animatedDots}
+              </span>
+            )}
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => { setValue(e.target.value); autoResize(); }}
+              onKeyDown={handleKeyDown}
+              placeholder=""
+              rows={1}
+              className="w-full bg-transparent text-foreground text-[15px] placeholder:text-muted-foreground resize-none outline-none min-h-[44px] max-h-[200px] py-3 px-4"
+            />
+          </div>
 
           {/* Action row */}
           <div className="flex items-center justify-between px-2 pb-2">
