@@ -47,6 +47,37 @@ export type WebAppData = {
   quality?: WebAppQuality;
 };
 
+export type ZipFileEntry = {
+  path: string;
+  name: string;
+  size: number;
+  compressedSize: number;
+  isDirectory: boolean;
+  extension: string;
+  content?: string; // text content for small text files
+};
+
+export type ZipAnalysis = {
+  fileName: string;
+  totalFiles: number;
+  totalDirectories: number;
+  totalSize: number;
+  compressedSize: number;
+  compressionRatio: number;
+  fileTypes: Record<string, number>;
+  largestFiles: ZipFileEntry[];
+  tree: ZipTreeNode[];
+  entries: ZipFileEntry[];
+};
+
+export type ZipTreeNode = {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  size: number;
+  children: ZipTreeNode[];
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -58,4 +89,5 @@ export type ChatMessage = {
   videoGeneration?: VideoGeneration;
   videoEdit?: VideoEditRequest;
   webApp?: WebAppData;
+  zipAnalysis?: ZipAnalysis;
 };
