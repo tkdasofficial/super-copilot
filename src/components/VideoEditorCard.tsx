@@ -11,7 +11,7 @@ import {
   applyOperations, renderProject,
 } from "@/lib/video-editor-engine";
 import { runVideoPipeline, type PipelineState, type WorkerTask, type TaskStatus } from "@/lib/video-pipeline";
-import type { AssemblyScene } from "@/lib/webm-assembler";
+import type { RenderScene } from "@/lib/ffmpeg-renderer";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
