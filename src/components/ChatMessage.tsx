@@ -10,6 +10,7 @@ import VideoEditorCard from "./VideoEditorCard";
 import WebAppPreviewCard from "./WebAppPreviewCard";
 import ZipAnalysisCard from "./ZipAnalysisCard";
 import FileConverterCard from "./FileConverterCard";
+import TTSCard from "./TTSCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
@@ -416,6 +417,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             )}
             {message.convertFile && (
               <FileConverterCard file={message.convertFile} />
+            )}
+            {message.ttsScript && (
+              <TTSCard script={message.ttsScript} />
             )}
 
             {/* Action bar */}
