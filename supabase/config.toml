@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.compile-tsx]
 verify_jwt = false
+
+[functions.file-creator]
+verify_jwt = false
