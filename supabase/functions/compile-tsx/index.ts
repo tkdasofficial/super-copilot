@@ -432,6 +432,29 @@ ${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
 
     const importMap = buildImportMap(dependencies);
     const importMapJSON = JSON.stringify({ imports: importMap }, null, 2);
+    const isBootEntry = /(?:^|\/)(main|index)\.(tsx?|jsx?)$/.test(entry);
+
+    const renderBlock = isBootEntry
+      ? `
+    // Entry bootstrap (main/index) is responsible for mounting.
+    // Provide ReactDOM global compatibility for ReactDOM.createRoot usage.
+    window.ReactDOM = { createRoot };
+    `
+      : `
+    const AppComponent = typeof App !== 'undefined' ? App :
+                         (() => React.createElement('div', {style:{padding:'2rem',textAlign:'center',fontFamily:'system-ui'}},
+                           React.createElement('h2', null, 'No App component found')));
+
+    try {
+      const root = createRoot(document.getElementById('root'));
+      root.render(React.createElement(AppComponent));
+    } catch (err) {
+      document.getElementById('root').innerHTML =
+        '<div style="padding:2rem;color:#f38ba8;font-family:monospace"><h3>Render Error</h3><pre>' +
+        String(err?.stack || err?.message || err).replace(/</g,'&lt;') + '</pre></div>';
+      console.error('Render failed:', err);
+    }
+    `;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -452,7 +475,7 @@ ${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
     import React, { useState, useEffect, useCallback, useRef, useMemo, useContext, createContext, useReducer, forwardRef, memo, Fragment, Suspense, lazy } from 'react';
     import { createRoot } from 'react-dom/client';
 
-    // Make React available globally for JSX
+    // Globals used by transpiled JSX or legacy snippets
     window.React = React;
 
     // Import router (may not be used, wrapped in try)
@@ -472,28 +495,16 @@ ${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
       Outlet = router.Outlet;
       useSearchParams = router.useSearchParams;
     } catch(e) {
-      console.warn("react-router-dom not available:", e.message);
+      console.warn('react-router-dom not available:', e.message);
     }
 
     // ── Dependency modules (topological order) ──
     ${moduleBlocks.join("\n")}
 
-    // ── App entry ──
+    // ── App/bootstrap entry ──
     ${appCode}
 
-    const AppComponent = typeof App !== 'undefined' ? App :
-                         (() => React.createElement('div', {style:{padding:'2rem',textAlign:'center',fontFamily:'system-ui'}},
-                           React.createElement('h2', null, 'No App component found')));
-
-    try {
-      const root = createRoot(document.getElementById('root'));
-      root.render(React.createElement(AppComponent));
-    } catch (err) {
-      document.getElementById('root').innerHTML =
-        '<div style="padding:2rem;color:#f38ba8;font-family:monospace"><h3>Render Error</h3><pre>' +
-        (err.stack || err.message).replace(/</g,'&lt;') + '</pre></div>';
-      console.error('Render failed:', err);
-    }
+    ${renderBlock}
   <\/script>
 </body>
 </html>`;
