@@ -13,9 +13,38 @@ function getOrientation(ar: string): string {
   return "landscape";
 }
 
+// ── Gather all Gemini keys for fallback ──
+function getGeminiKeys(): string[] {
+  const keys: string[] = [];
+  for (const suffix of ["", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"]) {
+    const k = Deno.env.get(`GEMINI_API_KEY${suffix}`);
+    if (k) keys.push(k);
+  }
+  return keys;
+}
+
+// ── Call Gemini with key fallback ──
+async function callGemini(body: any): Promise<any> {
+  const keys = getGeminiKeys();
+  let lastError = "";
+  for (const key of keys) {
+    try {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+      );
+      if (r.ok) return await r.json();
+      lastError = await r.text();
+      console.warn(`Gemini key failed (${r.status}):`, lastError.slice(0, 200));
+      if (r.status !== 429 && r.status !== 503 && r.status !== 500) break;
+    } catch (e) { lastError = String(e); }
+  }
+  throw new Error(`All Gemini keys failed: ${lastError.slice(0, 300)}`);
+}
+
 // ── Generate long-form script with chapters via Gemini ──
 async function generateLongFormScript(
-  geminiKey: string, topic: string, duration: number, aspectRatio: string, style: string
+  topic: string, duration: number, aspectRatio: string, style: string
 ): Promise<any> {
   // For long-form: generate chapters first, then scenes within each chapter
   const totalScenes = Math.max(6, Math.min(60, Math.round(duration / 5)));
@@ -66,21 +95,11 @@ Rules:
 - Shot types should vary within chapters for visual interest
 - Total scene durations should sum to approximately ${duration} seconds`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: "user", parts: [{ text: `Create a ${duration}s long-form video about: ${topic}` }] }],
-        generationConfig: { temperature: 0.7, responseMimeType: "application/json" },
-      }),
-    }
-  );
-
-  if (!res.ok) throw new Error(`Gemini script error [${res.status}]`);
-  const data = await res.json();
+  const data = await callGemini({
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: "user", parts: [{ text: `Create a ${duration}s long-form video about: ${topic}` }] }],
+    generationConfig: { temperature: 0.7, responseMimeType: "application/json" },
+  });
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("No script generated");
   const parsed = JSON.parse(text);
