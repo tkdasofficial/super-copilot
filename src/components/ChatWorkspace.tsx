@@ -285,6 +285,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
           ? "prototype"
           : "production"; // default to production for 10x quality
 
+        dispatchBgTask("code", { prompt: content, quality, projectState: lastWebApp, conversationHistory }, chatId || undefined).catch(() => {});
         const resp = await fetch(CODE_GEN_URL, {
           method: "POST",
           headers: {
