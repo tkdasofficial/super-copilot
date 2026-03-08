@@ -6,11 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ChatHistoryProvider } from "@/context/ChatHistoryContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Index from "./pages/Index";
-import Apps from "./pages/Apps";
-import ToolPage from "./pages/ToolPage";
 import Account from "./pages/Account";
 import Settings from "./pages/Settings";
-import History from "./pages/History";
 import Upgrade from "./pages/Upgrade";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
@@ -48,11 +45,8 @@ const App = () => (
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/apps" element={<ProtectedRoute><Apps /></ProtectedRoute>} />
-              <Route path="/tool/:toolId" element={<ProtectedRoute><ToolPage /></ProtectedRoute>} />
               <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
               <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
               <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
