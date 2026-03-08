@@ -39,7 +39,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
         <div className="flex justify-end">
           <div
             className={cn(
-              "relative rounded-2xl rounded-br-sm bg-foreground/85 text-background transition-all duration-200",
+              "relative rounded-2xl rounded-br-sm bg-foreground/90 text-background/90 transition-all duration-200",
               size === "short" && "px-4 py-2 text-[15px] max-w-[75%]",
               size === "medium" && "px-4 py-2.5 text-[15px] max-w-[82%]",
               size === "long" && "px-4 py-3 text-[14px] max-w-[88%] leading-relaxed",
