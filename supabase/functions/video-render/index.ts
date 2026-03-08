@@ -182,9 +182,7 @@ serve(async (req) => {
           // ── Full generation pipeline ──
           await sendEvent("task_update", { id: "script", status: "working", label: "Write Script" });
 
-          const script = await generateScript();
-
-          await sendEvent("task_update", { id: "script", status: "done", label: "Write Script", detail: `${script.scenes.length} scenes` });
+          const script = await generateScript(  await sendEvent("task_update", { id: "script", status: "done", label: "Write Script", detail: `${script.scenes.length} scenes` });
           await sendEvent("script_ready", { script });
 
           // Announce all scene tasks
@@ -202,7 +200,7 @@ serve(async (req) => {
             await sendEvent("task_update", { id: `img-${i}`, status: "working" });
             let imageUrl: string;
             try {
-              imageUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, rompt, aspec            ent("task_update", { id: `img-${i}`, status: "done", detail: "Ready" });
+              imageUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, rompt, aspec            ent("task_up `img-${i}`, status: "done", detail: "Ready" });
             } catch (e: any) {
               await sendEvent("task_update", { id: `img-${i}`, status: "error", detail: e.message });
               throw e;
@@ -297,7 +295,7 @@ serve(async (req) => {
 
                   try {
                     const newPrompt = issue.fixParams?.newPrompt || scenes[idx].imagePrompt;
-                    const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, newPrompt + nsistent lighting, colord professional quality.", aspect_ratio);
+                    const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, newPrompt + nsistent lighting, colord professional quality."io);
                     scenes[idx].imageUrl = newUrl;
                     await sendEvent("task_update", { id: `fix-${idx}`, status: "done", detail: "Regenerated" });
                   } catch (e: any) {
@@ -335,7 +333,7 @@ serve(async (req) => {
               await sendEvent("task_update", { id: `regen-img-${i}`, status: "working", label: `Regenerate Scene ${idx + 1} Image` });
               try {
                 const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, op.params.newPrompt, propectRatio || "9:16");
-                op._result = { imageUrl: newUrl };
+               = { imageUrl: newUrl };
                 await sendEvent("task_update", { id: `regen-img-${i}`, status: "done" });
               } catch (e: any) {
                 await sendEvent("task_update", { id: `regen-img-${i}`, status: "error", detail: e.message });
@@ -363,7 +361,7 @@ serve(async (req) => {
           if (imagePrompt) {
             await sendEvent("task_update", { id: "regen-img", status: "working", label: "Regenerate Image" });
             const url = await generateImage(FREEPIK_KEY, GEMINI_KEY, imagePrompt, aspect_ratio);
-            await sendEvent("task_update", { id: "regen-img", status: "done" });
+        ndEvent("task_update", { id: "regen-img", status: "done" });
             await sendEvent("scene_asset", { sceneIndex, type: "image", imageUrl: url });
           }
 
