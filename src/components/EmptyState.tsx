@@ -1,9 +1,8 @@
-import { useState, useMemo } from "react";
-import { Zap, PenTool, Lightbulb, BarChart3, ChevronRight, ArrowLeft,
-  Video, Code2, FileText, Search, FolderOpen, Briefcase, User,
-  Youtube, Image, Podcast, Globe, Database, Presentation, Brain,
-  Workflow, Bot, Mic, Palette, Mail, Calendar, Store,
-  Smartphone, Target, Layout, Rocket, Shield, Sparkles,
+import { useState } from "react";
+import { ChevronRight, ArrowLeft,
+  Video, Code2, FileText, Image, Brain, Globe,
+  Presentation, Mic, Workflow, Smartphone, Layout, Briefcase,
+  PenTool, Bot, Database, Palette, BarChart3, Rocket,
   type LucideIcon
 } from "lucide-react";
 import type { AITool, SamplePrompt } from "@/lib/types";
@@ -17,57 +16,34 @@ type Props = {
 
 type FeatureItem = { icon: LucideIcon; label: string; prompt: string };
 
-const MARQUEE_ROWS: FeatureItem[][] = [
-  [
-    { icon: Video, label: "Video Generator", prompt: "Generate a professional video for me" },
-    { icon: Code2, label: "App Builder", prompt: "Build a full-stack web application" },
-    { icon: Image, label: "Image Creator", prompt: "Create a professional image" },
-    { icon: FileText, label: "Document Writer", prompt: "Write a professional document" },
-    { icon: Brain, label: "Research Assistant", prompt: "Help me research a topic in depth" },
-    { icon: Podcast, label: "Podcast Creator", prompt: "Create a podcast episode" },
-    { icon: Globe, label: "Website Builder", prompt: "Build a modern website" },
-    { icon: Palette, label: "UI Designer", prompt: "Design a modern UI for a web application" },
-    { icon: Target, label: "Marketing Copy", prompt: "Write marketing copy for my product" },
-    { icon: Bot, label: "AI Agent", prompt: "Create an AI agent to automate my workflow" },
-    { icon: Database, label: "Schema Designer", prompt: "Design a database schema" },
-    { icon: Youtube, label: "YouTube Package", prompt: "Generate a complete YouTube video package" },
-  ],
-  [
-    { icon: Presentation, label: "Slide Deck", prompt: "Create a professional presentation" },
-    { icon: Mic, label: "Text to Speech", prompt: "Convert text to natural speech" },
-    { icon: Workflow, label: "Automation", prompt: "Build an automated workflow" },
-    { icon: Mail, label: "Email Campaign", prompt: "Create an email marketing campaign" },
-    { icon: Smartphone, label: "Mobile App", prompt: "Design a mobile app interface" },
-    { icon: Layout, label: "Landing Page", prompt: "Build a high-converting landing page" },
-    { icon: Briefcase, label: "Business Plan", prompt: "Write a comprehensive business plan" },
-    { icon: Search, label: "SEO Optimizer", prompt: "Optimize my content for SEO" },
-    { icon: Calendar, label: "Content Planner", prompt: "Create a content calendar for my brand" },
-    { icon: Store, label: "Product Page", prompt: "Design a product page" },
-    { icon: Rocket, label: "Deploy Assistant", prompt: "Help me deploy my application" },
-    { icon: FolderOpen, label: "File Converter", prompt: "Convert my files to another format" },
-  ],
-  [
-    { icon: User, label: "Resume Builder", prompt: "Create a professional resume" },
-    { icon: Shield, label: "Code Review", prompt: "Review and optimize my code" },
-    { icon: Sparkles, label: "Thumbnail Gen", prompt: "Generate eye-catching thumbnails" },
-    { icon: Lightbulb, label: "Idea Generator", prompt: "Brainstorm creative ideas" },
-    { icon: BarChart3, label: "Data Analyzer", prompt: "Analyze data and create visualizations" },
-    { icon: PenTool, label: "Blog Writer", prompt: "Write a compelling blog post" },
-    { icon: Globe, label: "Chrome Extension", prompt: "Build a Chrome extension" },
-    { icon: Video, label: "Shorts Creator", prompt: "Create viral short-form video content" },
-    { icon: FileText, label: "Legal Docs", prompt: "Generate a legal document" },
-    { icon: Brain, label: "Fact Checker", prompt: "Verify facts and claims" },
-    { icon: Zap, label: "Quick Task", prompt: "Help me with a quick task" },
-    { icon: Code2, label: "API Builder", prompt: "Build a REST API" },
-  ],
+const ROW_1: FeatureItem[] = [
+  { icon: Video, label: "Video Generator", prompt: "Generate a professional video for me" },
+  { icon: Code2, label: "App Builder", prompt: "Build a full-stack web application" },
+  { icon: Image, label: "Image Creator", prompt: "Create a professional image" },
+  { icon: Brain, label: "Research", prompt: "Help me research a topic in depth" },
+  { icon: Globe, label: "Website", prompt: "Build a modern website" },
+  { icon: Palette, label: "UI Designer", prompt: "Design a modern UI for a web application" },
 ];
 
-const QUICK_PROMPTS: SamplePrompt[] = [
-  { icon: Zap, label: "Quick idea", prompt: "Help me brainstorm content ideas for my channel" },
-  { icon: PenTool, label: "Write something", prompt: "Help me write a compelling social media post" },
-  { icon: Lightbulb, label: "Get advice", prompt: "What are the best strategies for growing on YouTube in 2026?" },
-  { icon: BarChart3, label: "Analyze trends", prompt: "What content trends are working right now?" },
+const ROW_2: FeatureItem[] = [
+  { icon: Presentation, label: "Slide Deck", prompt: "Create a professional presentation" },
+  { icon: Mic, label: "Text to Speech", prompt: "Convert text to natural speech" },
+  { icon: Workflow, label: "Automation", prompt: "Build an automated workflow" },
+  { icon: Smartphone, label: "Mobile App", prompt: "Design a mobile app interface" },
+  { icon: Layout, label: "Landing Page", prompt: "Build a high-converting landing page" },
+  { icon: Briefcase, label: "Business Plan", prompt: "Write a comprehensive business plan" },
 ];
+
+const ROW_3: FeatureItem[] = [
+  { icon: PenTool, label: "Blog Writer", prompt: "Write a compelling blog post" },
+  { icon: Bot, label: "AI Agent", prompt: "Create an AI agent to automate my workflow" },
+  { icon: Database, label: "Schema", prompt: "Design a database schema" },
+  { icon: FileText, label: "Documents", prompt: "Write a professional document" },
+  { icon: BarChart3, label: "Analytics", prompt: "Analyze data and create visualizations" },
+  { icon: Rocket, label: "Deploy", prompt: "Help me deploy my application" },
+];
+
+const MARQUEE_ROWS = [ROW_1, ROW_2, ROW_3];
 
 /* ── Marquee row component ── */
 const MarqueeRow = ({
