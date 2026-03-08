@@ -581,7 +581,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         {hasMessages ? (
           <div className="py-3">
             {messages.map((msg, i) => (
-              <ChatMessage key={msg.id} message={msg} isNew={i === messages.length - 1 && msg.role === "assistant"} />
+              <ChatMessage key={msg.id} message={msg} isNew={i === messages.length - 1 && msg.role === "assistant" && newMsgIds.current.has(msg.id)} />
             ))}
             {isTyping && <TypingIndicator phase={thinkingPhase} />}
           </div>
