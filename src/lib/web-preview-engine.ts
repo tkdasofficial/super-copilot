@@ -42,9 +42,9 @@ export async function compileProject(
     });
 
     if (error) {
-      console.warn("Backend compile failed, falling back to client-side:", error);
-      onProgress?.("Falling back to client-side...");
-      return clientSideFallback(files, framework, dependencies);
+      console.error("Backend compile failed:", error);
+      onProgress?.("Compilation failed");
+      return { success: false, error: error.message || "Backend compilation failed" };
     }
 
     if (data?.success && data?.html) {
@@ -59,21 +59,19 @@ export async function compileProject(
     }
 
     if (data?.errors?.length) {
-      // Backend returned compilation errors — try client-side as fallback
-      console.warn("Backend compile errors:", data.errors);
-      onProgress?.("Retrying with fallback compiler...");
-      const fallback = clientSideFallback(files, framework, dependencies);
+      console.error("Compile errors:", data.errors);
       return {
-        ...fallback,
-        warnings: data.errors, // pass backend errors as warnings
+        success: false,
+        error: data.errors.join("\n"),
+        errors: data.errors,
+        warnings: data.warnings,
       };
     }
 
-    return clientSideFallback(files, framework, dependencies);
+    return { success: false, error: "Unknown compilation error" };
   } catch (err: any) {
-    console.warn("Compile request failed:", err);
-    onProgress?.("Using fallback compiler...");
-    return clientSideFallback(files, framework, dependencies);
+    console.error("Compile request failed:", err);
+    return { success: false, error: err.message || "Network error during compilation" };
   }
 }
 
