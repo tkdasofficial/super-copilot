@@ -325,19 +325,19 @@ const Auth = () => {
           {mode === "login" ? (
             <>
               Don't have an account?{" "}
-              <button onClick={() => setMode("signup")} className="text-foreground font-medium hover:underline">
+              <button onClick={() => { setMode("signup"); navigate("/signup"); }} className="text-foreground font-medium hover:underline">
                 Sign up
               </button>
             </>
           ) : mode === "signup" ? (
             <>
               Already have an account?{" "}
-              <button onClick={() => setMode("login")} className="text-foreground font-medium hover:underline">
+              <button onClick={() => { setMode("login"); navigate("/login"); }} className="text-foreground font-medium hover:underline">
                 Sign in
               </button>
             </>
           ) : (
-            <button onClick={() => setMode("login")} className="flex items-center gap-1 text-foreground font-medium hover:underline mx-auto">
+            <button onClick={() => { setMode("login"); navigate("/login"); }} className="flex items-center gap-1 text-foreground font-medium hover:underline mx-auto">
               <ArrowLeft className="w-3.5 h-3.5" />
               Back to sign in
             </button>
