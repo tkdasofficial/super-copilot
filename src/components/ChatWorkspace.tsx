@@ -29,8 +29,20 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   const initialMsgCount = useRef((initialMessages || []).length);
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase>("thinking");
   const [chatId, setChatId] = useState<string | null>(externalChatId || null);
+  const [chatTitle, setChatTitle] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { addChat, updateChatMessages } = useChatHistory();
+
+  // Set title from initial messages when loading an existing chat
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0 && !chatTitle) {
+      const firstUser = initialMessages.find((m) => m.role === "user");
+      if (firstUser) {
+        const raw = firstUser.content.length > 100 ? firstUser.content.slice(0, 100) : firstUser.content;
+        setChatTitle(raw.length > 40 ? raw.slice(0, 40) + "..." : raw);
+      }
+    }
+  }, [initialMessages]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -61,9 +73,11 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     // Save first message as chat history entry
     if (!chatId) {
-      const title = content.length > 40 ? content.slice(0, 40) + "..." : content;
+      const rawTitle = content.length > 100 ? content.slice(0, 100) : content;
+      const title = rawTitle.length > 40 ? rawTitle.slice(0, 40) + "..." : rawTitle;
       const newId = addChat(title, content, tool?.id);
       setChatId(newId);
+      setChatTitle(title);
     }
 
     // Transition from "thinking" to the actual work phase after a delay
@@ -587,6 +601,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const title = `ZIP: ${file.name}`;
       const newId = addChat(title, `Uploaded ${file.name}`, tool?.id);
       setChatId(newId);
+      setChatTitle(title);
     }
 
     try {
@@ -625,6 +640,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const title = `Convert: ${file.name}`;
       const newId = addChat(title, `Convert ${file.name}`, tool?.id);
       setChatId(newId);
+      setChatTitle(title);
     }
 
     setMessages((prev) => [...prev, {
@@ -644,7 +660,12 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   }
 
   const hasMessages = messages.length > 0;
-  const title = tool ? tool.shortName : "Super Copilot";
+  const defaultTitle = tool ? tool.shortName : "Super Copilot";
+  
+  // Truncate display title to ~2-3 words with ellipsis
+  const displayTitle = chatTitle
+    ? chatTitle.length > 30 ? chatTitle.slice(0, 30) + "…" : chatTitle
+    : defaultTitle;
 
   return (
     <div className="flex flex-col h-full flex-1 min-w-0">
@@ -655,9 +676,11 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2">
-          {tool && <tool.icon className="w-4 h-4 text-foreground" />}
-          <h2 className="text-sm font-display font-semibold text-foreground">{title}</h2>
+        <div className="flex items-center gap-2 min-w-0 max-w-[60%]">
+          {tool && <tool.icon className="w-4 h-4 text-foreground shrink-0" />}
+          <h2 className="text-sm font-display font-semibold text-foreground truncate" title={chatTitle || defaultTitle}>
+            {displayTitle}
+          </h2>
         </div>
         <ProfileMenu />
       </header>
