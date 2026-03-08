@@ -182,7 +182,8 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                     "[&_hr]:border-border [&_hr]:my-4",
                   )}
                 >
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                  <ReactMarkdown>{displayedContent}</ReactMarkdown>
+                  {!typingDone && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
                 </div>
               </div>
             )}
