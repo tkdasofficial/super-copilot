@@ -20,7 +20,7 @@ const MobileSidebar = ({ open, onClose, onNewChat, onSelectChat, isMainChat, cha
   const { renameChat, deleteChat } = useChatHistory();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [studiosOpen, setStudiosOpen] = useState(false);
+  
 
   const startRename = (id: string, title: string) => {
     setEditingId(id);
