@@ -17,9 +17,38 @@ const MODEL_ENDPOINTS: Record<string, string> = {
   mystic: "mystic", flux: "flux-dev", "flux-pro": "flux-pro-v1-1",
 };
 
+// ── Gather all Gemini keys for fallback ──
+function getGeminiKeys(): string[] {
+  const keys: string[] = [];
+  for (const suffix of ["", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"]) {
+    const k = Deno.env.get(`GEMINI_API_KEY${suffix}`);
+    if (k) keys.push(k);
+  }
+  return keys;
+}
+
+// ── Call Gemini with key fallback (non-streaming) ──
+async function callGemini(body: any): Promise<any> {
+  const keys = getGeminiKeys();
+  let lastError = "";
+  for (const key of keys) {
+    try {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }
+      );
+      if (r.ok) return await r.json();
+      lastError = await r.text();
+      console.warn(`Gemini key failed (${r.status}):`, lastError.slice(0, 200));
+      if (r.status !== 429 && r.status !== 503 && r.status !== 500) break;
+    } catch (e) { lastError = String(e); }
+  }
+  throw new Error(`All Gemini keys failed: ${lastError.slice(0, 300)}`);
+}
+
 // ── Generate script via Gemini ──
 async function generateScript(
-  geminiKey: string, topic: string, duration: number, aspectRatio: string, style: string
+  topic: string, duration: number, aspectRatio: string, style: string
 ): Promise<any> {
   const sceneCount = Math.max(3, Math.min(12, Math.round(duration / 5)));
   const systemPrompt = `You are an expert short-form video scriptwriter. Return ONLY valid JSON.
@@ -27,20 +56,11 @@ Generate a script with exactly ${sceneCount} scenes for a ${duration}-second vid
 Return: {"title":"...","scenes":[{"sceneNumber":1,"narration":"...","imagePrompt":"Detailed 50+ word photorealistic prompt...","duration":5,"transition":"fade"}]}
 Rules: natural narration, detailed image prompts with visual consistency, hook opening, memorable close. Transitions: fade/cut/zoom/slide.`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: "user", parts: [{ text: `Create a ${duration}s video about: ${topic}` }] }],
-        generationConfig: { temperature: 0.8, responseMimeType: "application/json" },
-      }),
-    }
-  );
-  if (!res.ok) throw new Error(`Gemini script error [${res.status}]`);
-  const data = await res.json();
+  const data = await callGemini({
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: "user", parts: [{ text: `Create a ${duration}s video about: ${topic}` }] }],
+    generationConfig: { temperature: 0.8, responseMimeType: "application/json" },
+  });
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("No script generated");
   const parsed = JSON.parse(text);
