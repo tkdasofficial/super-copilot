@@ -53,12 +53,6 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               />
             )}
             <p className="leading-relaxed whitespace-pre-wrap">{message.content}</p>
-            {/* Timestamp */}
-            <p className="text-[10px] opacity-40 text-right mt-1 select-none">
-              {message.timestamp
-                ? new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : ""}
-            </p>
           </div>
         </div>
       ) : (
