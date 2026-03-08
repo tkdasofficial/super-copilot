@@ -112,6 +112,14 @@ const ChatInput = ({ toolName, onSend, onZipUpload, disabled }: Props) => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Handle ZIP files
+    if (file.name.toLowerCase().endsWith(".zip") || file.type === "application/zip" || file.type === "application/x-zip-compressed") {
+      onZipUpload?.(file);
+      e.target.value = "";
+      return;
+    }
+
     if (!file.type.startsWith("image/")) return;
 
     const reader = new FileReader();
