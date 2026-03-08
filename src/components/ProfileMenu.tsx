@@ -1,4 +1,4 @@
-import { User, Settings, FileText, Shield, HelpCircle, LogOut, Clock, Crown, LayoutDashboard } from "lucide-react";
+import { User, Settings, FileText, Shield, HelpCircle, LogOut, Clock, Crown, LayoutDashboard, Inbox } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
