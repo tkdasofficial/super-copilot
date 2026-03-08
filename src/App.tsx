@@ -20,6 +20,10 @@ import AdminUsers from "./pages/admin/Users";
 import AdminSubscriptions from "./pages/admin/Subscriptions";
 import AdminReports from "./pages/admin/Reports";
 import AdminNotifications from "./pages/admin/Notifications";
+import AdminChatSessions from "./pages/admin/ChatSessions";
+import AdminBackgroundTasks from "./pages/admin/BackgroundTasks";
+import AdminAnalytics from "./pages/admin/Analytics";
+import AdminSystemSettings from "./pages/admin/SystemSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,11 +55,15 @@ const App = () => (
               <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="subscriptions" element={<AdminSubscriptions />} />
+                <Route path="chat-sessions" element={<AdminChatSessions />} />
+                <Route path="background-tasks" element={<AdminBackgroundTasks />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
                 <Route path="reports" element={<AdminReports />} />
                 <Route path="notifications" element={<AdminNotifications />} />
+                <Route path="system" element={<AdminSystemSettings />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
