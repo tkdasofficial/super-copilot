@@ -298,7 +298,7 @@ serve(async (req) => {
 
                   try {
                     const newPrompt = issue.fixParams?.newPrompt || scenes[idx].imagePrompt;
-                    const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, newPrompt + nsistent lighting, colord professional quality."io);
+                    const newUrl = await generateImage(FREEPIK_KEY, newPrompt + ". Ensure consistent lighting, color palette, and professional quality.", aspect_ratio);
                     scenes[idx].imageUrl = newUrl;
                     await sendEvent("task_update", { id: `fix-${idx}`, status: "done", detail: "Regenerated" });
                   } catch (e: any) {
