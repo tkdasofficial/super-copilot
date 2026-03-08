@@ -27,6 +27,43 @@ type ChatHistoryContextType = {
 
 const ChatHistoryContext = createContext<ChatHistoryContextType | null>(null);
 
+/* ── localStorage cache helpers ── */
+const LS_SESSIONS_KEY = "sc_chat_sessions";
+const LS_MESSAGES_PREFIX = "sc_chat_msgs_";
+const LS_MAX_CACHED_CHATS = 50;
+
+function lsGetSessions(): ChatHistoryItem[] {
+  try {
+    const raw = localStorage.getItem(LS_SESSIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function lsSetSessions(items: ChatHistoryItem[]) {
+  try {
+    // Store without messages to keep size small
+    const slim = items.slice(0, LS_MAX_CACHED_CHATS).map(({ messages, ...rest }) => ({ ...rest, messages: [] }));
+    localStorage.setItem(LS_SESSIONS_KEY, JSON.stringify(slim));
+  } catch { /* quota exceeded — silently ignore */ }
+}
+
+function lsGetMessages(sessionId: string): ChatMessage[] | null {
+  try {
+    const raw = localStorage.getItem(LS_MESSAGES_PREFIX + sessionId);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function lsSetMessages(sessionId: string, msgs: ChatMessage[]) {
+  try {
+    localStorage.setItem(LS_MESSAGES_PREFIX + sessionId, JSON.stringify(msgs));
+  } catch { /* quota exceeded */ }
+}
+
+function lsRemoveMessages(sessionId: string) {
+  try { localStorage.removeItem(LS_MESSAGES_PREFIX + sessionId); } catch {}
+}
+
 const getDateLabel = (ts: number): string => {
   const now = new Date();
   const d = new Date(ts);
@@ -65,9 +102,15 @@ function rowToMessage(row: any): ChatMessage {
 }
 
 export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
-  const [history, setHistory] = useState<ChatHistoryItem[]>([]);
+  // Initialize from localStorage cache for instant render
+  const [history, setHistory] = useState<ChatHistoryItem[]>(() => lsGetSessions());
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+
+  // Sync history to localStorage whenever it changes
+  useEffect(() => {
+    if (history.length > 0) lsSetSessions(history);
+  }, [history]);
 
   // Load sessions from Supabase on mount / user change
   useEffect(() => {
@@ -81,7 +124,6 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
 
     const loadSessions = async () => {
       setLoading(true);
-      // Only load sessions from last 7 days
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
       const { data, error } = await supabase
@@ -106,7 +148,7 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
         preview: s.preview,
         date: getDateLabel(new Date(s.created_at).getTime()),
         createdAt: new Date(s.created_at).getTime(),
-        messages: [], // lazy-loaded
+        messages: [],
       }));
 
       setHistory(items);
@@ -119,6 +161,30 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
 
   // Load messages for a specific chat session
   const loadChatMessages = useCallback(async (sessionId: string): Promise<ChatMessage[]> => {
+    // Try localStorage cache first for instant load
+    const cached = lsGetMessages(sessionId);
+    if (cached && cached.length > 0) {
+      setHistory((prev) =>
+        prev.map((h) => (h.id === sessionId ? { ...h, messages: cached } : h))
+      );
+      // Still fetch from DB in background to get latest
+      supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true })
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            const msgs = data.map(rowToMessage);
+            lsSetMessages(sessionId, msgs);
+            setHistory((prev) =>
+              prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h))
+            );
+          }
+        });
+      return cached;
+    }
+
     const { data, error } = await supabase
       .from("chat_messages")
       .select("*")
@@ -131,8 +197,8 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const msgs = (data || []).map(rowToMessage);
+    lsSetMessages(sessionId, msgs);
 
-    // Cache in history state
     setHistory((prev) =>
       prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h))
     );
@@ -187,6 +253,7 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
 
   const deleteChat = useCallback((id: string) => {
     setHistory((prev) => prev.filter((c) => c.id !== id));
+    lsRemoveMessages(id);
 
     supabase
       .from("chat_sessions")
@@ -210,6 +277,7 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
 
   const updateChatMessages = useCallback((id: string, messages: ChatMessage[]) => {
     setHistory((prev) => prev.map((c) => (c.id === id ? { ...c, messages } : c)));
+    lsSetMessages(id, messages);
 
     // Debounced save — only save the latest message that isn't saved yet
     // We track by checking if the message ID looks like a DB uuid or a timestamp
