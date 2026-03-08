@@ -8,6 +8,7 @@ import logo from "@/assets/logo.svg";
 
 type Props = {
   onNewChat: () => void;
+  onSelectChat: (id: string) => void;
   isMainChat: boolean;
   chatHistory: { id: string; title: string; toolId?: string; preview: string; date: string; createdAt: number }[];
 };
