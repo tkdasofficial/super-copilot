@@ -486,6 +486,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         setThinkingPhase("working");
         dispatchBgTask("agent", { prompt: content }, chatId || undefined).catch(() => {});
         const resp = await fetch(AGENT_PLANNER_URL, {
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
