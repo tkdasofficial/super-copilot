@@ -161,7 +161,23 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               />
             )}
 
-            {message.content && (
+            {message.content && isTask && (
+              <div className="rounded-xl border border-border bg-card overflow-hidden" style={{ aspectRatio: "1.5 / 1", minHeight: 280 }}>
+                <div className="h-full overflow-y-auto p-5">
+                  <div
+                    className={cn(
+                      "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground",
+                      proseClasses
+                    )}
+                  >
+                    <ReactMarkdown>{displayedContent}</ReactMarkdown>
+                    {!typingDone && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {message.content && !isTask && (
               <div
                 className={cn(
                   "relative rounded-2xl rounded-tl-sm",
@@ -173,25 +189,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                 <div
                   className={cn(
                     "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground",
-                    "[&_p]:leading-[1.7] [&_p]:mb-2.5",
-                    "[&_li]:leading-[1.7]",
-                    "[&_h1]:font-display [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-2",
-                    "[&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2",
-                    "[&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1.5",
-                    "[&_strong]:text-foreground [&_strong]:font-semibold",
-                    "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_a]:decoration-primary/40 hover:[&_a]:decoration-primary",
-                    "[&_code]:bg-accent [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_code]:text-[13px] [&_code]:font-mono",
-                    "[&_pre]:bg-accent [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-border [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:my-3",
-                    "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[13px]",
-                    "[&_blockquote]:border-l-[3px] [&_blockquote]:border-foreground/15 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_blockquote]:my-3 [&_blockquote]:bg-accent/50 [&_blockquote]:rounded-r-lg [&_blockquote]:pr-3",
-                    "[&_table]:border-collapse [&_table]:w-full [&_table]:my-3 [&_table]:rounded-lg [&_table]:overflow-hidden [&_table]:border [&_table]:border-border",
-                    "[&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:bg-accent [&_th]:text-xs [&_th]:font-semibold [&_th]:text-left [&_th]:uppercase [&_th]:tracking-wider",
-                    "[&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm",
-                    "[&_tr:hover]:bg-accent/30",
-                    "[&_ul]:space-y-1.5 [&_ul]:my-2 [&_ul]:pl-1",
-                    "[&_ol]:space-y-1.5 [&_ol]:my-2 [&_ol]:pl-1",
-                    "[&_li]:pl-1",
-                    "[&_hr]:border-border [&_hr]:my-4",
+                    proseClasses
                   )}
                 >
                   <ReactMarkdown>{displayedContent}</ReactMarkdown>
