@@ -301,7 +301,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         )}
       </div>
 
-      <ChatInput toolName={tool?.shortName} onSend={handleSend} disabled={isTyping} />
+      <ChatInput toolName={tool?.shortName} onSend={handleSend} disabled={isTyping} showAspectRatio={tool?.id === "image-generator" || !tool} />
     </div>
   );
 };
