@@ -14,6 +14,7 @@ import Privacy from "./pages/Privacy";
 import Support from "./pages/Support";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
+import Inbox from "./pages/Inbox";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminUsers from "./pages/admin/Users";
