@@ -123,6 +123,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const newId = addChat(title, content, tool?.id);
       setChatId(newId);
       setChatTitle(title);
+      onChatCreated?.(newId);
     }
 
     // Transition from "thinking" to the actual work phase after a delay
