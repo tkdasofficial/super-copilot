@@ -369,6 +369,44 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       return;
     }
 
+    // Multi-step agent detection — complex requests with multiple tasks
+    const isMultiStep = /\b(and then|then|also|plus|after that|next|finally|step\s*\d|1\.|2\.|3\.)\b/i.test(content)
+      && content.length > 80
+      && (content.match(/\b(generate|create|make|write|build|design)\b/gi) || []).length >= 2;
+
+    if (isMultiStep) {
+      try {
+        setThinkingPhase("working");
+        const resp = await fetch(AGENT_PLANNER_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ prompt: content }),
+        });
+        const plan = await resp.json();
+        if (!resp.ok) throw new Error(plan.error || "Planning failed");
+
+        if (plan.steps?.length > 1) {
+          setMessages((prev) => [...prev, {
+            id: (Date.now() + 1).toString(),
+            role: "assistant",
+            content: `🚀 **${plan.title}** — Executing ${plan.steps.length} steps...`,
+            timestamp: new Date(),
+            agentPlan: plan,
+          }]);
+          clearTimeout(phaseTimer);
+          setIsTyping(false);
+          return;
+        }
+        // If planner returned only 1 step, fall through to regular handling
+      } catch (e: any) {
+        console.warn("Agent planner failed, falling through to regular chat:", e.message);
+        // Fall through to regular chat
+      }
+    }
+
     // Regular chat - streaming
     try {
       const chatMessages = messages
