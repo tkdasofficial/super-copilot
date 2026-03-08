@@ -130,6 +130,8 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
           await handleGenerateVideo(call.arguments);
         } else if (call.name === "edit_video") {
           await handleEditVideo(call.arguments);
+        } else if (call.name === "analyze_visuals") {
+          await handleAnalyzeVisuals(call.arguments);
         } else if (call.name === "analyze_video") {
           setExplanation(call.arguments.summary || "Analysis complete.");
           setPhase("done");
