@@ -622,6 +622,7 @@ serve(async (req) => {
     const is3D = /\b(3d|three\.?js|r3f|react.three|fiber|3 ?dimension|first.person|third.person|fps|open.world)\b/i.test(userContent);
     const isPortrait = /\b(portrait|vertical|mobile.first|endless.runner|tall|phone)\b/i.test(userContent);
     const isLandscape = /\b(landscape|horizontal|wide|widescreen)\b/i.test(userContent);
+    const isHighQuality = /\b(high.quality|polished|professional|production|aaa|premium|detailed|beautiful|stunning|amazing|best|epic|advanced)\b/i.test(userContent) || quality === "production";
 
     // Append quality, framework, and game-specific hints
     const lastMsg = geminiContents[geminiContents.length - 1];
@@ -633,8 +634,17 @@ serve(async (req) => {
       if (isGame) {
         hints.push("This is a GAME request — implement ALL professional game systems: game loop with fixed timestep, state machine, input manager (keyboard+touch), particle system, camera system, audio manager with Web Audio API tones, HUD, loading screen, main menu, pause menu, game over screen, high score via localStorage, mobile touch controls, screen shake, particle effects");
         
+        if (isHighQuality) {
+          hints.push("USE TIER 3 ASSET STRUCTURE — Create MULTIPLE FOLDERS for each major asset (characters, environment, effects, ui, audio, data). Each character gets its own subfolder with separate files for renderer, animations, physics, AI, particles, and audio. Create detailed procedural Canvas art with gradients, shadows, bezier curves — NOT simple rectangles. Include AnimationController classes with multi-frame animations per state (idle 4+ frames, run 6+ frames, attack 5+ frames). Generate 15-30+ files organized in proper asset folder hierarchy");
+        } else {
+          hints.push("Use Tier 2 asset structure with organized asset modules");
+        }
+        
         if (is3D) {
           hints.push("Use react-vite framework with Three.js (@react-three/fiber ^8.18, @react-three/drei ^9.122.0, three >=0.133). Include proper 3D lighting, shadows, materials, and camera controls");
+          if (isHighQuality) {
+            hints.push("Create separate component files for each 3D entity: PlayerModel.tsx, PlayerController.tsx, PlayerEffects.tsx, EnemyFactory.tsx, Terrain.tsx, etc. Use custom shader materials, instanced meshes, and post-processing");
+          }
         } else {
           hints.push("Use vanilla-html with HTML5 Canvas. Include full game loop, sprite rendering, collision detection, particle effects");
         }
