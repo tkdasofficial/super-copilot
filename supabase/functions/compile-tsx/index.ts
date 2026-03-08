@@ -458,6 +458,7 @@ serve(async (req: Request) => {
 
     // Topologically sort modules so dependencies come before dependents
     const { sorted: depModules, appFile } = topoSort(entry, files);
+    const bindingsByModule = collectModuleBindings(files);
 
     // Transpile and build each module, exposing exports as global variables
     const moduleBlocks: string[] = [];
@@ -471,16 +472,42 @@ serve(async (req: Request) => {
 
       const stripped = stripForInline(result.code);
       const exports = extractExports(file.content);
-      
-      // Collect all names to expose
-      const allNames = [...exports.namedExports];
-      if (exports.defaultExport && !allNames.includes(exports.defaultExport)) {
-        allNames.push(exports.defaultExport);
+      const moduleBindings = bindingsByModule.get(normalizePath(file.path));
+
+      const exposedMap = new Map<string, string>(); // exposedName -> source expression
+
+      for (const named of exports.namedExports) {
+        if (isValidIdentifier(named)) {
+          exposedMap.set(named, `typeof ${named} !== 'undefined' ? ${named} : undefined`);
+        }
       }
 
-      // Wrap in IIFE, extract names to global scope
-      const returnObj = allNames.length > 0 
-        ? `return { ${allNames.join(", ")} };`
+      if (exports.defaultExport && isValidIdentifier(exports.defaultExport)) {
+        const defaultExpr = `typeof ${exports.defaultExport} !== 'undefined' ? ${exports.defaultExport} : undefined`;
+        const defaultTargets = moduleBindings && moduleBindings.defaultNames.size > 0
+          ? Array.from(moduleBindings.defaultNames)
+          : [exports.defaultExport];
+
+        for (const target of defaultTargets) {
+          if (isValidIdentifier(target)) {
+            exposedMap.set(target, defaultExpr);
+          }
+        }
+      }
+
+      if (moduleBindings) {
+        for (const [localName, exportedName] of moduleBindings.namedBindings.entries()) {
+          if (isValidIdentifier(localName) && isValidIdentifier(exportedName)) {
+            exposedMap.set(localName, `typeof ${exportedName} !== 'undefined' ? ${exportedName} : undefined`);
+          }
+        }
+      }
+
+      const exposedEntries = Array.from(exposedMap.entries());
+      const returnObj = exposedEntries.length > 0
+        ? `return { ${exposedEntries
+            .map(([name, expr]) => `${JSON.stringify(name)}: (${expr})`)
+            .join(", ")} };`
         : "return {};";
 
       moduleBlocks.push(`
@@ -494,7 +521,7 @@ var __mod_result = (function() {
     return {};
   }
 })();
-${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
+${exposedEntries.map(([name]) => `var ${name} = __mod_result[${JSON.stringify(name)}];`).join("\n")}
 `);
     }
 
