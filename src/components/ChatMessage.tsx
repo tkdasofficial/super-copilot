@@ -11,6 +11,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
 
   return (
     <div className={cn("px-4 py-3 max-w-2xl mx-auto animate-fade-up")}>
+      <p className="text-xs font-medium text-muted-foreground mb-1.5">
+        {isUser ? "You" : "Super Copilot"}
+      </p>
       {isUser ? (
         <div className="rounded-xl bg-primary/5 border border-border px-3.5 py-2.5">
           {message.imageUrl && (
