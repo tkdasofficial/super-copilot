@@ -25,6 +25,7 @@ const FILE_CREATOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/file
 const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalChatId }: Props) => {
   const [messages, setMessages] = useState<ChatMessageType[]>(initialMessages || []);
   const [isTyping, setIsTyping] = useState(false);
+  const [lastNewMsgId, setLastNewMsgId] = useState<string | null>(null);
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase>("thinking");
   const [chatId, setChatId] = useState<string | null>(externalChatId || null);
   const scrollRef = useRef<HTMLDivElement>(null);
