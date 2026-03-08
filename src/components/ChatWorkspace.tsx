@@ -62,9 +62,11 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     // Save first message as chat history entry
     if (!chatId) {
-      const title = content.length > 40 ? content.slice(0, 40) + "..." : content;
+      const rawTitle = content.length > 100 ? content.slice(0, 100) : content;
+      const title = rawTitle.length > 40 ? rawTitle.slice(0, 40) + "..." : rawTitle;
       const newId = addChat(title, content, tool?.id);
       setChatId(newId);
+      setChatTitle(title);
     }
 
     // Transition from "thinking" to the actual work phase after a delay
