@@ -84,32 +84,11 @@ export const STUDIO_CATEGORIES: StudioCategory[] = [
         prompt: "Design the architecture for a [description] web application. Then build a production-quality full-stack web app with all features, responsive design, and modern UI.",
       },
       {
-        id: "game-generator",
-        name: "Game Generator",
-        description: "Concept → Design → Playable game",
-        icon: Smartphone,
-        prompt: "Design a game concept for a [type] game with mechanics, levels, and progression system. Then build a fully playable web game with graphics, sound effects, scoring, and game over screen.",
-      },
-      {
-        id: "code-debug",
-        name: "Code Debugger",
-        description: "Analyze → Find bugs → Fix → Optimize",
-        icon: Bug,
-        prompt: "Analyze this code for bugs and issues: [code]. Then provide a detailed bug report with line numbers and explanations. Then provide the fixed and optimized version with comments explaining each fix.",
-      },
-      {
         id: "api-builder",
         name: "API Builder",
         description: "Design → Schema → Documentation",
         icon: Server,
         prompt: "Design a RESTful API for [description]. Create the full API schema with endpoints, request/response formats, and authentication. Then generate API documentation in markdown. Then create example code for each endpoint. Then export as a JSON file.",
-      },
-      {
-        id: "db-schema",
-        name: "Database Schema Generator",
-        description: "Requirements → Schema → SQL → Docs",
-        icon: Database,
-        prompt: "Design a database schema for [description]. Create the full schema with tables, relationships, indexes, and constraints. Then generate the SQL migration file. Then create documentation with an ER diagram description. Then export the SQL file.",
       },
       {
         id: "landing-page",
