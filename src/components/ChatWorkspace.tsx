@@ -153,6 +153,44 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       return;
     }
 
+    // Short-form video creation detection
+    const isVideoCreation = /\b(create|make|generate|produce)\b.*\b(video|short|reel|tiktok|clip)\b.*\b(about|on|for|of)\b/i.test(content)
+      || /\b(short[\s-]*form|short)\b.*\b(video|content)\b/i.test(content);
+
+    if (isVideoCreation) {
+      // Parse duration from content (default 45s)
+      const durationMatch = content.match(/(\d{1,3})\s*(second|sec|s\b)/i);
+      const videoDuration = durationMatch ? Math.min(60, Math.max(10, parseInt(durationMatch[1]))) : 45;
+
+      // Parse aspect ratio
+      const detectedVideoRatio = detectAspectRatio(content);
+
+      // Extract topic: remove common prefixes
+      const videoTopic = content
+        .replace(/\b(create|make|generate|produce|please|can you|a|an)\b/gi, "")
+        .replace(/\b(short[\s-]*form|short|video|reel|tiktok|clip|content|about|on|for|of)\b/gi, "")
+        .replace(/\b\d{1,3}\s*(second|sec|s)\b/gi, "")
+        .replace(/\b(9:16|16:9|1:1|4:3|3:4|vertical|horizontal|portrait|landscape|square)\b/gi, "")
+        .replace(/\s+/g, " ")
+        .trim() || content;
+
+      setMessages((prev) => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `🎬 Starting video creation: "${videoTopic}" (${videoDuration}s, ${detectedVideoRatio})`,
+        timestamp: new Date(),
+        videoGeneration: {
+          topic: videoTopic,
+          duration: videoDuration,
+          aspectRatio: detectedVideoRatio,
+        },
+      }]);
+
+      clearTimeout(phaseTimer);
+      setIsTyping(false);
+      return;
+    }
+
     // Stock footage search for video mode
     const isVideoSearch = taskMode === "video" || /\b(stock\s*(footage|video|clip)|b[\s-]*roll|video\s*clip)\b/i.test(content);
     if (isVideoSearch) {

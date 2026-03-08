@@ -3,6 +3,7 @@ import type { ChatMessage as ChatMessageType, StockVideo } from "@/lib/types";
 import { Copy, Check, Play, ExternalLink, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import VideoGenerationCard from "./VideoGenerationCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
@@ -39,6 +40,13 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
           </div>
           {message.videos && message.videos.length > 0 && (
             <VideoGrid videos={message.videos} />
+          )}
+          {message.videoGeneration && (
+            <VideoGenerationCard
+              topic={message.videoGeneration.topic}
+              duration={message.videoGeneration.duration}
+              aspectRatio={message.videoGeneration.aspectRatio}
+            />
           )}
         </div>
       )}

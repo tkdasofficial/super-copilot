@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.pexels-videos]
 verify_jwt = false
+
+[functions.generate-video-script]
+verify_jwt = false
+
+[functions.google-tts]
+verify_jwt = false
