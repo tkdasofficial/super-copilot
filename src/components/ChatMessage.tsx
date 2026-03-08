@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { ChatMessage as ChatMessageType, StockVideo } from "@/lib/types";
 import { Copy, Check, Play, ExternalLink, Download, Volume2, VolumeX, ThumbsUp, ThumbsDown, Flag, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,41 @@ const getMessageSize = (content: string) => {
   return "long";
 };
 
+const CHARS_PER_SECOND = 100;
+
+const useTypewriter = (text: string, enabled: boolean) => {
+  const [displayed, setDisplayed] = useState(enabled ? "" : text);
+  const [done, setDone] = useState(!enabled);
+  const rafRef = useRef<number>(0);
+  const startRef = useRef<number>(0);
+
+  useEffect(() => {
+    if (!enabled) {
+      setDisplayed(text);
+      setDone(true);
+      return;
+    }
+    setDisplayed("");
+    setDone(false);
+    startRef.current = performance.now();
+
+    const animate = (now: number) => {
+      const elapsed = (now - startRef.current) / 1000;
+      const chars = Math.min(Math.floor(elapsed * CHARS_PER_SECOND), text.length);
+      setDisplayed(text.slice(0, chars));
+      if (chars < text.length) {
+        rafRef.current = requestAnimationFrame(animate);
+      } else {
+        setDone(true);
+      }
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [text, enabled]);
+
+  return { displayed, done };
+};
+
 const ChatMessage = ({ message, isNew = false }: Props) => {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
@@ -23,7 +58,10 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
   const [reported, setReported] = useState(false);
   const { toast } = useToast();
-  const size = getMessageSize(message.content);
+
+  const shouldAnimate = isNew && !isUser;
+  const { displayed: displayedContent, done: typingDone } = useTypewriter(message.content, shouldAnimate);
+  const size = getMessageSize(displayedContent);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -144,7 +182,8 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                     "[&_hr]:border-border [&_hr]:my-4",
                   )}
                 >
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                  <ReactMarkdown>{displayedContent}</ReactMarkdown>
+                  {!typingDone && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
                 </div>
               </div>
             )}
@@ -167,7 +206,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             )}
 
             {/* ChatGPT-style action bar */}
-            {message.content && (
+            {message.content && typingDone && (
               <div className="flex items-center gap-0.5 pt-1">
                 {/* TTS */}
                 <ActionButton
