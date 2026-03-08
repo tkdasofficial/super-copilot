@@ -4,6 +4,7 @@ import { Copy, Check, Play, ExternalLink, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import VideoGenerationCard from "./VideoGenerationCard";
+import VideoEditorCard from "./VideoEditorCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
