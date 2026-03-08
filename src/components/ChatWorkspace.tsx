@@ -649,7 +649,12 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   }
 
   const hasMessages = messages.length > 0;
-  const title = tool ? tool.shortName : "Super Copilot";
+  const defaultTitle = tool ? tool.shortName : "Super Copilot";
+  
+  // Truncate display title to ~2-3 words with ellipsis
+  const displayTitle = chatTitle
+    ? chatTitle.length > 30 ? chatTitle.slice(0, 30) + "…" : chatTitle
+    : defaultTitle;
 
   return (
     <div className="flex flex-col h-full flex-1 min-w-0">
@@ -660,9 +665,11 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div className="flex items-center gap-2">
-          {tool && <tool.icon className="w-4 h-4 text-foreground" />}
-          <h2 className="text-sm font-display font-semibold text-foreground">{title}</h2>
+        <div className="flex items-center gap-2 min-w-0 max-w-[60%]">
+          {tool && <tool.icon className="w-4 h-4 text-foreground shrink-0" />}
+          <h2 className="text-sm font-display font-semibold text-foreground truncate" title={chatTitle || defaultTitle}>
+            {displayTitle}
+          </h2>
         </div>
         <ProfileMenu />
       </header>
