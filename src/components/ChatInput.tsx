@@ -174,7 +174,7 @@ const ChatInput = ({ toolName, onSend, onZipUpload, disabled }: Props) => {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,.zip,application/zip"
                 onChange={handleFileSelect}
                 className="hidden"
               />
