@@ -8,7 +8,7 @@ import {
   ChevronRight,
   FileCode,
   Loader2,
-  Hammer,
+  Bot,
   Monitor,
   Tablet,
   Smartphone,
@@ -21,7 +21,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { compileProject, buildPreviewHTML, type WebAppProject, type GeneratedFile } from "@/lib/web-preview-engine";
+import { compileProject, type WebAppProject, type GeneratedFile } from "@/lib/web-preview-engine";
 import { downloadProjectAsZip } from "@/lib/zip-export";
 import { toast } from "sonner";
 
@@ -39,12 +39,81 @@ const VIEWPORT_SIZES: Record<Viewport, number> = {
 
 type Props = { project: WebAppProject };
 
+/* ── Helpers ── */
+
+/** Detect actual file types in the project */
+function detectProjectInfo(files: GeneratedFile[]) {
+  const hasTS = files.some(f => /\.tsx?$/.test(f.path));
+  const hasJSX = files.some(f => /\.[jt]sx$/.test(f.path));
+  const hasCSS = files.some(f => f.path.endsWith(".css"));
+  const hasHTML = files.some(f => f.path.endsWith(".html"));
+  const hasJS = files.some(f => /\.js$/.test(f.path));
+
+  const fileTypes: string[] = [];
+  if (hasHTML) fileTypes.push("HTML");
+  if (hasCSS) fileTypes.push("CSS");
+  if (hasTS) fileTypes.push("TypeScript");
+  else if (hasJS) fileTypes.push("JavaScript");
+  if (hasJSX && !hasTS) fileTypes.push("JSX");
+
+  return { hasTS, hasJSX, hasCSS, hasHTML, hasJS, fileTypes };
+}
+
+/** Generate build steps based on actual project content */
+function generateBuildSteps(
+  framework: string,
+  files: GeneratedFile[],
+  deps: Record<string, string>,
+): BuildStep[] {
+  const info = detectProjectInfo(files);
+  const depCount = Object.keys(deps).length;
+  const steps: BuildStep[] = [];
+
+  // Step 1: Always analyze
+  steps.push({ label: `Analyzing ${files.length} ${info.fileTypes.join(", ")} files`, status: "in_progress" });
+
+  // Step 2: Framework-specific
+  if (framework === "vanilla-html") {
+    steps.push({ label: "Setting up HTML/CSS/JS environment", status: "pending" });
+  } else {
+    const fwLabel = framework === "react-vite" ? "React + Vite" : "Next.js";
+    steps.push({ label: `Initializing ${fwLabel} project`, status: "pending" });
+  }
+
+  // Step 3: Dependencies (only if there are any)
+  if (depCount > 0) {
+    steps.push({ label: `Resolving ${depCount} dependenc${depCount === 1 ? "y" : "ies"}`, status: "pending" });
+  }
+
+  // Step 4: Compilation (only for TS/JSX — NOT for plain HTML/CSS/JS)
+  if (info.hasTS) {
+    steps.push({ label: "Compiling TypeScript & JSX", status: "pending" });
+  } else if (info.hasJSX) {
+    steps.push({ label: "Compiling JSX components", status: "pending" });
+  } else if (framework === "vanilla-html") {
+    steps.push({ label: "Inlining scripts & styles", status: "pending" });
+  }
+
+  // Step 5: Always build preview
+  steps.push({ label: "Building preview", status: "pending" });
+
+  return steps;
+}
+
+const frameworkLabel = (fw: string) => {
+  if (fw === "react-vite") return "React";
+  if (fw === "nextjs-static") return "Next.js";
+  return "HTML";
+};
+
 const StepIcon = ({ status }: { status: StepStatus }) => {
   if (status === "done") return <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />;
   if (status === "in_progress") return <Loader2 className="w-4 h-4 text-primary animate-spin shrink-0" />;
   if (status === "error") return <AlertCircle className="w-4 h-4 text-destructive shrink-0" />;
   return <Circle className="w-4 h-4 text-muted-foreground/40 shrink-0" />;
 };
+
+/* ── Main Component ── */
 
 const WebAppPreviewCard = ({ project }: Props) => {
   const [phase, setPhase] = useState<Phase>("compiling");
@@ -57,13 +126,9 @@ const WebAppPreviewCard = ({ project }: Props) => {
   const [consoleLogs, setConsoleLogs] = useState<ConsoleEntry[]>([]);
   const [showFullPreview, setShowFullPreview] = useState(false);
   const [expandedView, setExpandedView] = useState<"code" | "console" | null>(null);
-  const [buildSteps, setBuildSteps] = useState<BuildStep[]>([
-    { label: "Analyzing project structure", status: "in_progress" },
-    { label: `Setting up ${project.framework}`, status: "pending" },
-    { label: `Processing ${project.files.length} files`, status: "pending" },
-    { label: "Compiling TypeScript & JSX", status: "pending" },
-    { label: "Bundling & building preview", status: "pending" },
-  ]);
+  const [buildSteps, setBuildSteps] = useState<BuildStep[]>(() =>
+    generateBuildSteps(project.framework, project.files, project.dependencies)
+  );
   const [compileWarnings, setCompileWarnings] = useState<string[]>([]);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const fullIframeRef = useRef<HTMLIFrameElement>(null);
@@ -76,108 +141,85 @@ const WebAppPreviewCard = ({ project }: Props) => {
     }));
   }, [project.files, editedFiles]);
 
-  // Update step helper
-  const updateStep = useCallback((index: number, status: StepStatus) => {
-    setBuildSteps(prev => prev.map((s, i) => i === index ? { ...s, status } : s));
+  // Advance step by index
+  const advanceStep = useCallback((stepIdx: number, status: StepStatus) => {
+    setBuildSteps(prev => prev.map((s, i) => i === stepIdx ? { ...s, status } : s));
   }, []);
 
-  // Compile project using backend
+  // Run backend compilation
   useEffect(() => {
     if (compiledOnce.current) return;
     compiledOnce.current = true;
 
     const run = async () => {
-      // Step 0: Analyze
-      updateStep(0, "done");
-      await delay(300);
+      const totalSteps = buildSteps.length;
 
-      // Step 1: Framework setup
-      updateStep(1, "in_progress");
-      await delay(300);
-      updateStep(1, "done");
+      // Animate through steps before compilation
+      for (let i = 0; i < totalSteps - 2; i++) {
+        advanceStep(i, "in_progress");
+        await delay(250 + Math.random() * 150);
+        advanceStep(i, "done");
+      }
 
-      // Step 2: Processing files
-      updateStep(2, "in_progress");
-      await delay(200);
-      updateStep(2, "done");
-
-      // Step 3: Compiling
-      updateStep(3, "in_progress");
+      // Compilation step (second to last)
+      const compileIdx = totalSteps - 2;
+      advanceStep(compileIdx, "in_progress");
 
       const result = await compileProject(
         currentFiles,
         project.framework,
         project.dependencies,
         project.entryPoint,
-        (step) => console.log("[Compiler]", step),
       );
 
       if (result.success && result.html) {
-        updateStep(3, "done");
+        advanceStep(compileIdx, "done");
 
-        // Step 4: Building preview
-        updateStep(4, "in_progress");
-        await delay(300);
+        // Final step: building preview
+        const previewIdx = totalSteps - 1;
+        advanceStep(previewIdx, "in_progress");
+        await delay(200);
         setPreviewHTML(result.html);
-        updateStep(4, "done");
+        advanceStep(previewIdx, "done");
         setPhase("ready");
 
         if (result.warnings?.length) {
           setCompileWarnings(result.warnings);
         }
       } else {
-        updateStep(3, "error");
-        // Fallback to client-side
-        try {
-          const html = buildPreviewHTML(currentFiles, project.framework, project.dependencies);
-          setPreviewHTML(html);
-          updateStep(4, "done");
-          setPhase("ready");
-          setCompileWarnings([result.error || "Used fallback compiler"]);
-        } catch {
-          updateStep(4, "error");
-          setPhase("error");
-        }
+        advanceStep(compileIdx, "error");
+        setPhase("error");
+        setCompileWarnings([result.error || "Compilation failed"]);
       }
     };
 
     run();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Rebuild on edits (client-side only for speed)
-  const handleRebuild = useCallback(() => {
-    try {
-      const html = buildPreviewHTML(currentFiles, project.framework, project.dependencies);
-      setPreviewHTML(html);
-      setPhase("ready");
-    } catch {
-      setPhase("error");
-    }
-  }, [currentFiles, project.framework, project.dependencies]);
-
-  // Re-compile with backend when edits are applied
+  // Re-compile with backend after edits
   const handleRecompile = useCallback(async () => {
     setPhase("compiling");
-    setBuildSteps(prev => prev.map((s, i) =>
-      i < 3 ? { ...s, status: "done" } :
-      i === 3 ? { ...s, status: "in_progress" } :
-      { ...s, status: "pending" }
+    const newSteps = generateBuildSteps(project.framework, currentFiles, project.dependencies);
+    // Mark all but last 2 as done immediately
+    setBuildSteps(newSteps.map((s, i) =>
+      i < newSteps.length - 2 ? { ...s, status: "done" as StepStatus } :
+      i === newSteps.length - 2 ? { ...s, status: "in_progress" as StepStatus } :
+      s
     ));
 
     const result = await compileProject(currentFiles, project.framework, project.dependencies);
 
     if (result.success && result.html) {
-      updateStep(3, "done");
-      updateStep(4, "in_progress");
-      await delay(200);
+      setBuildSteps(prev => prev.map(s => ({ ...s, status: "done" as StepStatus })));
       setPreviewHTML(result.html);
-      updateStep(4, "done");
       setPhase("ready");
     } else {
-      updateStep(3, "error");
-      handleRebuild();
+      setBuildSteps(prev => prev.map((s, i) =>
+        i === prev.length - 2 ? { ...s, status: "error" as StepStatus } : s
+      ));
+      setPhase("error");
     }
-  }, [currentFiles, project.framework, project.dependencies, updateStep, handleRebuild]);
+  }, [currentFiles, project.framework, project.dependencies]);
 
   // Console messages from iframe
   useEffect(() => {
@@ -235,10 +277,10 @@ const WebAppPreviewCard = ({ project }: Props) => {
         {/* Header */}
         <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 border-b border-border bg-muted/30">
           <div className="flex items-center gap-2">
-            <Hammer className="w-4 h-4 text-primary" />
-            <span className="text-xs sm:text-sm font-medium text-foreground">Web App Builder</span>
+            <Bot className="w-4 h-4 text-primary" />
+            <span className="text-xs sm:text-sm font-medium text-foreground">Agent</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-muted-foreground font-mono">
-              {project.framework}
+              {frameworkLabel(project.framework)}
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -262,35 +304,58 @@ const WebAppPreviewCard = ({ project }: Props) => {
           </div>
         </div>
 
-        {/* Build steps */}
-        <div className="px-3 sm:px-4 py-3 space-y-1">
-          {buildSteps.map((step, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex items-center gap-2.5 py-1.5 px-2 rounded-lg transition-all duration-300",
-                step.status === "in_progress" && "bg-primary/5",
-              )}
+        {/* Build steps — shown during compilation or as summary */}
+        {!allStepsDone ? (
+          <div className="px-3 sm:px-4 py-3 space-y-1">
+            {buildSteps.map((step, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "flex items-center gap-2.5 py-1.5 px-2 rounded-lg transition-all duration-300",
+                  step.status === "in_progress" && "bg-primary/5",
+                )}
+              >
+                <StepIcon status={step.status} />
+                <span className={cn(
+                  "text-xs sm:text-[13px] transition-colors",
+                  step.status === "done" && "text-foreground/70",
+                  step.status === "in_progress" && "text-foreground font-medium",
+                  step.status === "pending" && "text-muted-foreground",
+                  step.status === "error" && "text-destructive",
+                )}>
+                  {step.label}
+                </span>
+                {step.status === "in_progress" && (
+                  <span className="text-[10px] text-primary ml-auto animate-pulse">running...</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* After build: show inline webview preview */
+          <div className="relative bg-background">
+            <iframe
+              ref={iframeRef}
+              srcDoc={previewHTML}
+              sandbox="allow-scripts"
+              className="w-full h-[350px] sm:h-[400px] border-0"
+              title="Web App Preview"
+            />
+            {/* Overlay open button */}
+            <button
+              onClick={() => setShowFullPreview(true)}
+              className="absolute top-2 right-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-card/90 backdrop-blur-sm border border-border text-xs font-medium text-foreground hover:bg-card transition-colors shadow-sm"
             >
-              <StepIcon status={step.status} />
-              <span className={cn(
-                "text-xs sm:text-[13px] transition-colors",
-                step.status === "done" && "text-foreground/70",
-                step.status === "in_progress" && "text-foreground font-medium",
-                step.status === "pending" && "text-muted-foreground",
-                step.status === "error" && "text-destructive",
-              )}>
-                {step.label}
-              </span>
-              {step.status === "in_progress" && (
-                <span className="text-[10px] text-primary ml-auto animate-pulse">compiling...</span>
-              )}
-            </div>
-          ))}
+              <Eye className="w-3.5 h-3.5" />
+              Fullscreen
+            </button>
+          </div>
+        )}
 
-          {/* Warnings */}
-          {compileWarnings.length > 0 && allStepsDone && (
-            <div className="mt-2 px-2 py-1.5 rounded-lg bg-accent/50 text-[11px] text-muted-foreground">
+        {/* Warnings */}
+        {compileWarnings.length > 0 && allStepsDone && (
+          <div className="px-3 sm:px-4 py-2">
+            <div className="px-2 py-1.5 rounded-lg bg-accent/50 text-[11px] text-muted-foreground">
               {compileWarnings.map((w, i) => (
                 <div key={i} className="flex items-start gap-1.5">
                   <span className="text-yellow-500 shrink-0">⚠</span>
@@ -298,23 +363,16 @@ const WebAppPreviewCard = ({ project }: Props) => {
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Action buttons */}
+        {/* Action bar — only when ready */}
         {allStepsDone && phase === "ready" && (
-          <div className="px-3 sm:px-4 pb-3 pt-1 flex flex-wrap gap-2">
-            <button
-              onClick={() => setShowFullPreview(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs sm:text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              Preview
-            </button>
+          <div className="px-3 sm:px-4 pb-2 pt-1 flex flex-wrap gap-2">
             <button
               onClick={() => setExpandedView(expandedView === "code" ? null : "code")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors border",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
                 expandedView === "code"
                   ? "bg-accent text-foreground border-border"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent/50 border-border"
@@ -327,7 +385,7 @@ const WebAppPreviewCard = ({ project }: Props) => {
             <button
               onClick={() => setExpandedView(expandedView === "console" ? null : "console")}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors border",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
                 expandedView === "console"
                   ? "bg-accent text-foreground border-border"
                   : "text-muted-foreground hover:text-foreground hover:bg-accent/50 border-border"
@@ -347,7 +405,7 @@ const WebAppPreviewCard = ({ project }: Props) => {
         {/* Expandable code panel */}
         {expandedView === "code" && (
           <div className="border-t border-border">
-            <div className="flex h-[300px] sm:h-[350px]">
+            <div className="flex h-[280px] sm:h-[320px]">
               <div className="w-36 sm:w-44 shrink-0 border-r border-border overflow-y-auto bg-muted/20">
                 <div className="py-1">
                   {fileTree.map((node) => (
@@ -374,33 +432,15 @@ const WebAppPreviewCard = ({ project }: Props) => {
                       </span>
                       <div className="flex items-center gap-0.5">
                         {editedFiles[currentFile.path] !== undefined && (
-                          <button
-                            onClick={() => handleResetFile(currentFile.path)}
-                            className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
-                            title="Reset to original"
-                          >
+                          <button onClick={() => handleResetFile(currentFile.path)} className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors" title="Reset">
                             <RotateCcw className="w-3 h-3" />
                           </button>
                         )}
-                        <button
-                          onClick={() => setIsEditing(!isEditing)}
-                          className={cn(
-                            "p-1 rounded transition-colors",
-                            isEditing ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground"
-                          )}
-                          title={isEditing ? "View mode" : "Edit mode"}
-                        >
+                        <button onClick={() => setIsEditing(!isEditing)} className={cn("p-1 rounded transition-colors", isEditing ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground")} title={isEditing ? "View" : "Edit"}>
                           <Pencil className="w-3 h-3" />
                         </button>
-                        <button
-                          onClick={() => handleCopyFile(currentFile.path)}
-                          className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          {copiedFile === currentFile.path ? (
-                            <Check className="w-3 h-3 text-primary" />
-                          ) : (
-                            <Copy className="w-3 h-3" />
-                          )}
+                        <button onClick={() => handleCopyFile(currentFile.path)} className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors">
+                          {copiedFile === currentFile.path ? <Check className="w-3 h-3 text-primary" /> : <Copy className="w-3 h-3" />}
                         </button>
                       </div>
                     </div>
@@ -425,7 +465,7 @@ const WebAppPreviewCard = ({ project }: Props) => {
 
         {/* Console panel */}
         {expandedView === "console" && (
-          <div className="border-t border-border h-[200px] sm:h-[250px] overflow-y-auto bg-background p-2">
+          <div className="border-t border-border h-[180px] sm:h-[220px] overflow-y-auto bg-background p-2">
             {consoleLogs.length === 0 ? (
               <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
                 No console output yet.
@@ -433,15 +473,12 @@ const WebAppPreviewCard = ({ project }: Props) => {
             ) : (
               <div className="space-y-0.5">
                 {consoleLogs.map((entry, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      "px-2 py-1 rounded text-[11px] font-mono",
-                      entry.level === "error" && "bg-destructive/10 text-destructive",
-                      entry.level === "warn" && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
-                      entry.level === "log" && "text-muted-foreground"
-                    )}
-                  >
+                  <div key={i} className={cn(
+                    "px-2 py-1 rounded text-[11px] font-mono",
+                    entry.level === "error" && "bg-destructive/10 text-destructive",
+                    entry.level === "warn" && "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+                    entry.level === "log" && "text-muted-foreground"
+                  )}>
                     <span className="opacity-50 mr-2">
                       {entry.level === "error" ? "✕" : entry.level === "warn" ? "⚠" : "›"}
                     </span>
@@ -461,10 +498,7 @@ const WebAppPreviewCard = ({ project }: Props) => {
             {hasEdits && " · edited"}
           </p>
           {hasEdits && (
-            <button
-              onClick={() => setEditedFiles({})}
-              className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
-            >
+            <button onClick={() => setEditedFiles({})} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
               Reset all
             </button>
           )}
@@ -476,10 +510,10 @@ const WebAppPreviewCard = ({ project }: Props) => {
         <div className="fixed inset-0 z-50 bg-background flex flex-col animate-fade-in">
           <div className="flex items-center justify-between px-3 sm:px-4 py-2 border-b border-border bg-muted/30 shrink-0">
             <div className="flex items-center gap-2">
-              <Hammer className="w-4 h-4 text-primary" />
+              <Bot className="w-4 h-4 text-primary" />
               <span className="text-xs sm:text-sm font-medium text-foreground">Preview</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent text-muted-foreground font-mono">
-                {project.framework}
+                {frameworkLabel(project.framework)}
               </span>
             </div>
             <div className="flex items-center gap-1">
@@ -493,9 +527,7 @@ const WebAppPreviewCard = ({ project }: Props) => {
                   onClick={() => setViewport(id)}
                   className={cn(
                     "p-1.5 rounded-md transition-colors",
-                    viewport === id
-                      ? "text-foreground bg-accent"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                    viewport === id ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
                   )}
                   title={id}
                 >
@@ -503,30 +535,14 @@ const WebAppPreviewCard = ({ project }: Props) => {
                 </button>
               ))}
               <div className="w-px h-4 bg-border mx-1" />
-              <button
-                onClick={() => setShowFullPreview(false)}
-                className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                title="Close preview"
-              >
+              <button onClick={() => setShowFullPreview(false)} className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="Close">
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
           <div className="flex-1 flex justify-center bg-accent/20 overflow-hidden">
-            <div
-              className="h-full bg-background transition-all duration-300"
-              style={{
-                width: VIEWPORT_SIZES[viewport] ? `${VIEWPORT_SIZES[viewport]}px` : "100%",
-                maxWidth: "100%",
-              }}
-            >
-              <iframe
-                ref={fullIframeRef}
-                srcDoc={previewHTML}
-                sandbox="allow-scripts"
-                className="w-full h-full border-0"
-                title="Web App Full Preview"
-              />
+            <div className="h-full bg-background transition-all duration-300" style={{ width: VIEWPORT_SIZES[viewport] ? `${VIEWPORT_SIZES[viewport]}px` : "100%", maxWidth: "100%" }}>
+              <iframe ref={fullIframeRef} srcDoc={previewHTML} sandbox="allow-scripts" className="w-full h-full border-0" title="Web App Full Preview" />
             </div>
           </div>
         </div>
@@ -539,13 +555,8 @@ function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// File tree types and helpers
-type FileTreeNodeData = {
-  name: string;
-  path: string;
-  isDir: boolean;
-  children: FileTreeNodeData[];
-};
+// File tree
+type FileTreeNodeData = { name: string; path: string; isDir: boolean; children: FileTreeNodeData[] };
 
 function buildFileTree(files: GeneratedFile[]): FileTreeNodeData[] {
   const root: FileTreeNodeData[] = [];
@@ -565,37 +576,21 @@ function buildFileTree(files: GeneratedFile[]): FileTreeNodeData[] {
     }
   }
   const sortNodes = (nodes: FileTreeNodeData[]) => {
-    nodes.sort((a, b) => {
-      if (a.isDir !== b.isDir) return a.isDir ? -1 : 1;
-      return a.name.localeCompare(b.name);
-    });
+    nodes.sort((a, b) => { if (a.isDir !== b.isDir) return a.isDir ? -1 : 1; return a.name.localeCompare(b.name); });
     nodes.forEach((n) => sortNodes(n.children));
   };
   sortNodes(root);
   return root;
 }
 
-function FileTreeNode({
-  node, selectedFile, onSelect, depth, editedPaths,
-}: {
-  node: FileTreeNodeData;
-  selectedFile: string;
-  onSelect: (path: string) => void;
-  depth: number;
-  editedPaths: Record<string, string>;
+function FileTreeNode({ node, selectedFile, onSelect, depth, editedPaths }: {
+  node: FileTreeNodeData; selectedFile: string; onSelect: (p: string) => void; depth: number; editedPaths: Record<string, string>;
 }) {
   const [expanded, setExpanded] = useState(depth < 2);
-  const isSelected = node.path === selectedFile;
-  const isEdited = editedPaths[node.path] !== undefined;
-
   if (node.isDir) {
     return (
       <div>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center gap-1 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
-          style={{ paddingLeft: `${depth * 12 + 8}px` }}
-        >
+        <button onClick={() => setExpanded(!expanded)} className="w-full flex items-center gap-1 px-2 py-0.5 text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors" style={{ paddingLeft: `${depth * 12 + 8}px` }}>
           <ChevronRight className={cn("w-3 h-3 shrink-0 transition-transform", expanded && "rotate-90")} />
           <span className="truncate">{node.name}</span>
         </button>
@@ -605,19 +600,11 @@ function FileTreeNode({
       </div>
     );
   }
-
   return (
-    <button
-      onClick={() => onSelect(node.path)}
-      className={cn(
-        "w-full flex items-center gap-1 px-2 py-0.5 text-[11px] transition-colors",
-        isSelected ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-      )}
-      style={{ paddingLeft: `${depth * 12 + 8}px` }}
-    >
+    <button onClick={() => onSelect(node.path)} className={cn("w-full flex items-center gap-1 px-2 py-0.5 text-[11px] transition-colors", node.path === selectedFile ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-accent/50")} style={{ paddingLeft: `${depth * 12 + 8}px` }}>
       <FileCode className="w-3 h-3 shrink-0" />
       <span className="truncate">{node.name}</span>
-      {isEdited && <span className="ml-auto text-primary text-[9px]">●</span>}
+      {editedPaths[node.path] !== undefined && <span className="ml-auto text-primary text-[9px]">●</span>}
     </button>
   );
 }
