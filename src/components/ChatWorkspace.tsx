@@ -18,6 +18,7 @@ type Props = {
   onMenuClick: () => void;
   initialMessages?: ChatMessageType[];
   chatId?: string;
+  onChatCreated?: (id: string) => void;
 };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
