@@ -36,6 +36,14 @@ export type VideoEditRequest = {
   isNewProject: boolean;
 };
 
+export type WebAppData = {
+  files: { path: string; content: string }[];
+  framework: "react-vite" | "nextjs-static" | "vanilla-html";
+  dependencies: Record<string, string>;
+  entryPoint: string;
+  explanation: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -46,4 +54,5 @@ export type ChatMessage = {
   videos?: StockVideo[];
   videoGeneration?: VideoGeneration;
   videoEdit?: VideoEditRequest;
+  webApp?: WebAppData;
 };

@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.long-form-pipeline]
 verify_jwt = false
+
+[functions.code-generator]
+verify_jwt = false

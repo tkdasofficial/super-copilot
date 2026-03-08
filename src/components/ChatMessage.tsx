@@ -55,6 +55,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               userMessage={message.videoEdit.userMessage}
             />
           )}
+          {message.webApp && (
+            <WebAppPreviewCard project={message.webApp} />
+          )}
         </div>
       )}
     </div>
