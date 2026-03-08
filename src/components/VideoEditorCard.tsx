@@ -188,6 +188,52 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
     }
   };
 
+  // ── Run visual analysis ──
+  const handleAnalyzeVisuals = async (args: any) => {
+    if (!existingProject) {
+      throw new Error("No video project to analyze. Create a video first.");
+    }
+
+    setPhase("analyzing");
+    addTask({ id: "visual-analysis", label: "Visual Analysis", status: "working" });
+
+    const analysisScenes = existingProject.scenes.map((s, i) => ({
+      index: i,
+      imageUrl: s.imageUrl,
+      narration: s.narration,
+      duration: s.duration,
+    }));
+
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/visual-analysis`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({
+        scenes: analysisScenes,
+        aspectRatio: existingProject.aspectRatio,
+        contentType: existingProject.scenes.length > 8 ? "long" : "short",
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || "Visual analysis failed");
+    }
+
+    const analysis = await resp.json();
+    updateTask("visual-analysis", "done", `Score: ${analysis.overallScore}/100`);
+
+    const issueCount = analysis.issues?.length || 0;
+    const criticalCount = analysis.issues?.filter((i: any) => i.severity === "critical").length || 0;
+
+    setExplanation(
+      `${analysis.summary}\n\nScores: Overall ${analysis.overallScore}/100, Consistency ${analysis.consistencyScore}/100, Quality ${analysis.qualityScore}/100, Pacing ${analysis.pacingScore}/100.\n${issueCount} issues found (${criticalCount} critical).${analysis.recommendations?.length ? "\n\nRecommendations:\n" + analysis.recommendations.map((r: string, i: number) => `${i + 1}. ${r}`).join("\n") : ""}`
+    );
+    setPhase("done");
+  };
+
   // ── Apply edits via server-side ──
   const handleEditVideo = async (args: any) => {
     if (!existingProject) {
