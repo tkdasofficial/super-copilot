@@ -467,6 +467,18 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       }
     }
 
+    // Website analysis detection — user pasted a URL to analyze
+    const urlPattern = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/i;
+    const hasUrl = urlPattern.test(content);
+    const isWebAnalysis = hasUrl && (
+      /\b(analy[sz]e|check|review|inspect|scan|audit|examine|tell\s*me\s*about|what\s*is|details?\s*(about|of|on)|info(rmation)?\s*(about|of|on)|describe|explain|overview|look\s*at|visit|open|show\s*me|about\s*this|what.*website|website.*what)\b/i.test(content)
+      || content.replace(urlPattern, "").trim().length < 30
+    );
+
+    if (isWebAnalysis) {
+      setThinkingPhase("researching");
+    }
+
     // Regular chat - streaming
     try {
       const chatMessages = messages
@@ -502,7 +514,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: chatMessages, toolId: tool?.id }),
+        body: JSON.stringify({ messages: chatMessages, toolId: tool?.id, webAnalysis: isWebAnalysis }),
       });
 
       if (!resp.ok || !resp.body) {
