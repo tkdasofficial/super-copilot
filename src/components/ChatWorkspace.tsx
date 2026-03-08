@@ -155,8 +155,9 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     // AI Video editing / generation detection
     const isVideoEdit = /\b(edit|cut|trim|crop|add\s*(text|music|filter|transition|overlay|effect)|change\s*(speed|timing|pacing)|slow\s*mo|speed\s*up|reorder|split|delete\s*scene|regenerate|re-?render|improve\s*video|enhance\s*video|make\s*(it|the\s*video)\s*(better|shorter|longer|faster|slower)|analyz|check\s*quality|visual\s*consistency|quality\s*check)\b/i.test(content);
-    const isVideoCreation = /\b(create|make|generate|produce)\b.*\b(video|short|reel|tiktok|clip)\b.*\b(about|on|for|of)\b/i.test(content)
-      || /\b(short[\s-]*form|short)\b.*\b(video|content)\b/i.test(content);
+    const isVideoCreation = /\b(create|make|generate|produce)\b.*\b(video|short|reel|tiktok|clip|documentary|youtube|essay|explainer)\b.*\b(about|on|for|of)\b/i.test(content)
+      || /\b(short[\s-]*form|short|long[\s-]*form|long)\b.*\b(video|content)\b/i.test(content)
+      || /\b(create|make|generate)\b.*\b(video)\b/i.test(content);
 
     if (isVideoCreation || isVideoEdit) {
       setMessages((prev) => [...prev, {

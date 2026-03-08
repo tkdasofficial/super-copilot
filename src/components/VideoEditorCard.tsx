@@ -11,6 +11,7 @@ import {
   applyOperations, renderProject,
 } from "@/lib/video-editor-engine";
 import { runVideoPipeline, type PipelineState, type WorkerTask, type TaskStatus } from "@/lib/video-pipeline";
+import { runLongFormPipeline, type LongFormPipelineState } from "@/lib/long-form-pipeline";
 import type { RenderScene } from "@/lib/ffmpeg-renderer";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -128,6 +129,8 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
       for (const call of toolCalls) {
         if (call.name === "generate_full_video") {
           await handleGenerateVideo(call.arguments);
+        } else if (call.name === "generate_long_form_video") {
+          await handleLongFormVideo(call.arguments);
         } else if (call.name === "edit_video") {
           await handleEditVideo(call.arguments);
         } else if (call.name === "analyze_visuals") {
@@ -162,6 +165,51 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
 
           if (state.script) {
             setExplanation(`Creating "${state.script.title}" with ${state.script.scenes.length} scenes`);
+          }
+
+          if (state.videoUrl) {
+            setVideoUrl(state.videoUrl);
+            onVideoReady?.(state.videoUrl);
+            setPhase("done");
+          }
+
+          if (state.error) {
+            setError(state.error);
+            setPhase("error");
+          }
+        }
+      );
+
+      if (!videoUrl) {
+        setVideoUrl(url);
+        onVideoReady?.(url);
+        setPhase("done");
+      }
+    } catch (e: any) {
+      setError(e.message);
+      setPhase("error");
+    }
+  };
+
+  // ── Generate long-form video via stock footage pipeline ──
+  const handleLongFormVideo = async (args: any) => {
+    setPhase("generating");
+    const { topic, duration, aspect_ratio } = args;
+
+    try {
+      const url = await runLongFormPipeline(
+        topic,
+        duration || 120,
+        aspect_ratio || "16:9",
+        (state: LongFormPipelineState) => {
+          setTasks((prev) => {
+            const aiTask = prev.find((t) => t.id === "ai-decide");
+            return [aiTask!, ...state.tasks];
+          });
+
+          if (state.script) {
+            const chapterInfo = state.chapters?.map((c) => c.title).join(", ") || "";
+            setExplanation(`Creating "${state.script.title}" with ${state.script.totalScenes} scenes across ${state.script.chapters.length} chapters${chapterInfo ? `: ${chapterInfo}` : ""}`);
           }
 
           if (state.videoUrl) {
