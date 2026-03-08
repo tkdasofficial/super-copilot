@@ -121,15 +121,21 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled }: P
       return;
     }
 
-    if (!file.type.startsWith("image/")) return;
+    // Handle image files for chat attachment
+    if (file.type.startsWith("image/") && !e.target.dataset.convertMode) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(",")[1];
+        setAttachedImage({ base64, mimeType: file.type, preview: result });
+      };
+      reader.readAsDataURL(file);
+      e.target.value = "";
+      return;
+    }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const base64 = result.split(",")[1];
-      setAttachedImage({ base64, mimeType: file.type, preview: result });
-    };
-    reader.readAsDataURL(file);
+    // Handle any other file for conversion
+    onFileConvert?.(file);
     e.target.value = "";
   };
 
