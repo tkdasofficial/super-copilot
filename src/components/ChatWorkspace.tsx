@@ -153,6 +153,47 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       return;
     }
 
+    // Stock footage search for video mode
+    const isVideoSearch = taskMode === "video" || /\b(stock\s*(footage|video|clip)|b[\s-]*roll|video\s*clip)\b/i.test(content);
+    if (isVideoSearch) {
+      try {
+        // Extract search query - use Gemini to parse intent or fall back to content
+        const searchQuery = content.replace(/\b(find|search|get|show|stock|footage|video|clip|b[\s-]*roll)\b/gi, "").trim() || content;
+
+        const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/pexels-videos`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ query: searchQuery, per_page: 6 }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || "Stock footage search failed");
+
+        const videos = data.videos || [];
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: videos.length > 0
+            ? `Found ${data.total_results} stock videos for "${searchQuery}". Here are the top results:`
+            : `No stock footage found for "${searchQuery}". Try a different search term.`,
+          timestamp: new Date(),
+          videos: videos.length > 0 ? videos : undefined,
+        }]);
+      } catch (e: any) {
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `Sorry, stock footage search failed: ${e.message}`,
+          timestamp: new Date(),
+        }]);
+      }
+      clearTimeout(phaseTimer);
+      setIsTyping(false);
+      return;
+    }
+
     // Regular chat - streaming
     try {
       const chatMessages = messages
