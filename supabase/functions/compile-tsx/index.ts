@@ -276,7 +276,7 @@ function topoSort(
     // Parse imports and visit dependencies first
     const imports = parseImports(file.content);
     for (const imp of imports) {
-      const resolved = resolveImport(imp.path, files);
+      const resolved = resolveImport(imp.path, file.path, files);
       if (resolved) visit(resolved.path);
     }
 
