@@ -11,6 +11,8 @@ import { detectAspectRatio } from "@/lib/detect-aspect-ratio";
 import { getCategory } from "@/lib/file-converter";
 import { analyzeZip } from "@/lib/zip-analyzer";
 import type { TaskMode } from "./TaskModeSelector";
+import { useBackgroundTasks, type BackgroundTask } from "@/hooks/useBackgroundTasks";
+import BackgroundTaskBanner from "./BackgroundTaskBanner";
 type Props = {
   tool?: AITool;
   onMenuClick: () => void;
@@ -32,6 +34,48 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   const [chatTitle, setChatTitle] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { addChat, updateChatMessages } = useChatHistory();
+  const { tasks: bgTasks, activeTasks, dispatch: dispatchBgTask } = useBackgroundTasks(chatId);
+
+  // Handle background task completion — inject result as assistant message
+  const handleBgTaskResult = useCallback((task: BackgroundTask) => {
+    if (!task.result) return;
+    const r = task.result;
+    const msgBase = { id: `bg-${task.id}`, role: "assistant" as const, timestamp: new Date() };
+
+    if (r.type === "chat") {
+      setMessages((prev) => [...prev, { ...msgBase, content: r.content }]);
+    } else if (r.type === "image") {
+      setMessages((prev) => [...prev, { ...msgBase, content: "Here is your generated image!", imageUrl: r.imageUrl }]);
+    } else if (r.type === "code") {
+      setMessages((prev) => [...prev, {
+        ...msgBase,
+        content: r.explanation || "Here's your generated web application!",
+        webApp: { files: r.files, framework: r.framework, dependencies: r.dependencies || {}, entryPoint: r.entryPoint || "index.html", explanation: r.explanation || "", quality: "production" },
+      }]);
+    } else if (r.type === "file") {
+      setMessages((prev) => [...prev, {
+        ...msgBase,
+        content: r.explanation || `Here's your generated file:`,
+        generatedFile: { fileName: r.fileName, content: r.content, mimeType: r.mimeType, format: r.format },
+      }]);
+    } else if (r.type === "agent") {
+      setMessages((prev) => [...prev, {
+        ...msgBase,
+        content: `🚀 **${r.plan?.title}** — ${r.stepResults?.length || 0} steps completed`,
+        agentPlan: r.plan,
+      }]);
+    }
+  }, []);
+
+  // On mount: recover any completed background tasks that have no corresponding message
+  useEffect(() => {
+    for (const task of bgTasks) {
+      if (task.status === "done" && task.result) {
+        const hasBgMsg = messages.some((m) => m.id === `bg-${task.id}`);
+        if (!hasBgMsg) handleBgTaskResult(task);
+      }
+    }
+  }, [bgTasks]);
 
   // Set title from initial messages when loading an existing chat
   useEffect(() => {
@@ -95,6 +139,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     if (isUIDesign) {
       try {
         const designPrompt = `You are a world-class UI/UX designer. Design and build: ${content}. Focus on: stunning visual design, modern UI patterns, smooth animations, responsive layout, proper spacing, beautiful typography, and cohesive color palette. Make it production-quality and pixel-perfect.`;
+        dispatchBgTask("code", { prompt: designPrompt, quality: "production" }, chatId || undefined).catch(() => {});
         const resp = await fetch(CODE_GEN_URL, {
           method: "POST",
           headers: {
@@ -182,6 +227,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     if (isImageGen && !imageData) {
       try {
+        dispatchBgTask("image", { prompt: content, aspect_ratio: detectedRatio }, chatId || undefined).catch(() => {});
         const resp = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-image`, {
           method: "POST",
           headers: {
@@ -239,6 +285,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
           ? "prototype"
           : "production"; // default to production for 10x quality
 
+        dispatchBgTask("code", { prompt: content, quality, projectState: lastWebApp, conversationHistory }, chatId || undefined).catch(() => {});
         const resp = await fetch(CODE_GEN_URL, {
           method: "POST",
           headers: {
@@ -299,6 +346,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
       try {
         setThinkingPhase("working");
+        dispatchBgTask("file", { prompt: content, format: detectedFormat }, chatId || undefined).catch(() => {});
         const resp = await fetch(FILE_CREATOR_URL, {
           method: "POST",
           headers: {
@@ -437,6 +485,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     if (isMultiStep) {
       try {
         setThinkingPhase("working");
+        dispatchBgTask("agent", { prompt: content }, chatId || undefined).catch(() => {});
         const resp = await fetch(AGENT_PLANNER_URL, {
           method: "POST",
           headers: {
@@ -480,7 +529,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       setTimeout(() => setThinkingPhase("researching"), 3500);
     }
 
-    // Regular chat - streaming
+    // Regular chat - streaming (with background task insurance)
     try {
       const chatMessages = messages
         .filter((m) => !m.imageUrl || m.role === "user")
@@ -508,6 +557,9 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       } else {
         chatMessages.push({ role: "user", content });
       }
+
+      // Dispatch background task as insurance (runs server-side if user leaves)
+      dispatchBgTask("chat", { messages: chatMessages, toolId: tool?.id, webAnalysis: isWebAnalysis }, chatId || undefined).catch(() => {});
 
       const resp = await fetch(CHAT_URL, {
         method: "POST",
@@ -597,7 +649,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     clearTimeout(phaseTimer);
     setIsTyping(false);
-  }, [tool, chatId, addChat, messages, updateChatMessages]);
+  }, [tool, chatId, addChat, messages, updateChatMessages, dispatchBgTask]);
 
   const handleZipUpload = useCallback(async (file: File) => {
     const userMsg: ChatMessageType = {
@@ -699,6 +751,10 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        {/* Background task banners */}
+        {activeTasks.map((task) => (
+          <BackgroundTaskBanner key={task.id} task={task} onResult={handleBgTaskResult} />
+        ))}
         {hasMessages ? (
           <div className="py-3">
             {messages.map((msg, i) => (

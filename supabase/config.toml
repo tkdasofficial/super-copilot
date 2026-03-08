@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.agent-planner]
 verify_jwt = false
+
+[functions.task-worker]
+verify_jwt = false
