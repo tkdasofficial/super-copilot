@@ -280,7 +280,7 @@ const Settings = () => {
                   <option>Developer</option>
                   <option>Designer</option>
                   <option>Video</option>
-                  <option>Full-Stack</option>
+                  <option>Agent</option>
                 </select>
               </div>
             </div>
