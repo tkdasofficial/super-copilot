@@ -231,6 +231,81 @@ serve(async (req) => {
             await sendEvent("scene_ready", { index: i, scene: scenes[i] });
           }
 
+          // ── Visual consistency analysis ──
+          await sendEvent("task_update", { id: "analysis", status: "working", label: "Quality Analysis", group: "render" });
+
+          try {
+            const analysisScenes = scenes.map((s: any, i: number) => ({
+              index: i,
+              imageUrl: s.imageUrl,
+              narration: s.narration,
+              duration: s.duration,
+            }));
+
+            const analysisResp = await fetch(
+              `${Deno.env.get("SUPABASE_URL")}/functions/v1/visual-analysis`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`,
+                },
+                body: JSON.stringify({
+                  scenes: analysisScenes,
+                  aspectRatio: aspect_ratio,
+                  contentType: scenes.length > 8 ? "long" : "short",
+                }),
+              }
+            );
+
+            if (analysisResp.ok) {
+              const analysis = await analysisResp.json();
+              await sendEvent("task_update", {
+                id: "analysis",
+                status: "done",
+                label: "Quality Analysis",
+                detail: `Score: ${analysis.overallScore}/100`,
+              });
+              await sendEvent("visual_analysis", { analysis });
+
+              // Auto-fix critical issues by regenerating problematic scenes
+              const criticalIssues = (analysis.issues || []).filter(
+                (issue: any) => issue.severity === "critical" && issue.autoFixable && issue.fixParams?.type === "regenerate_image"
+              );
+
+              if (criticalIssues.length > 0) {
+                await sendEvent("task_update", { id: "autofix", status: "working", label: "Auto-Fix Visuals", group: "render" });
+
+                for (const issue of criticalIssues) {
+                  const idx = issue.sceneIndex;
+                  await sendEvent("task_update", {
+                    id: `fix-${idx}`,
+                    status: "working",
+                    label: `Fix Scene ${idx + 1}`,
+                    group: "image",
+                    detail: issue.description,
+                  });
+
+                  try {
+                    const newPrompt = issue.fixParams?.newPrompt || scenes[idx].imagePrompt;
+                    const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, newPrompt + ". Ensure consistent lighting, color palette, and professional quality.", aspect_ratio);
+                    scenes[idx].imageUrl = newUrl;
+                    await sendEvent("task_update", { id: `fix-${idx}`, status: "done", detail: "Regenerated" });
+                  } catch (e: any) {
+                    await sendEvent("task_update", { id: `fix-${idx}`, status: "error", detail: e.message });
+                  }
+                }
+
+                await sendEvent("task_update", { id: "autofix", status: "done", detail: `Fixed ${criticalIssues.length} scenes` });
+              }
+            } else {
+              await sendEvent("task_update", { id: "analysis", status: "done", detail: "Skipped" });
+            }
+          } catch (e: any) {
+            console.error("Analysis error:", e);
+            await sendEvent("task_update", { id: "analysis", status: "done", detail: "Skipped" });
+          }
+
           // All assets ready — tell client to assemble
           await sendEvent("task_update", { id: "assemble", status: "working", label: "Assemble Video", group: "render" });
           await sendEvent("assets_complete", {
