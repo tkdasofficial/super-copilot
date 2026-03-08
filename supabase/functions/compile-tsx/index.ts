@@ -436,9 +436,7 @@ ${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
 
     const renderBlock = isBootEntry
       ? `
-    // Entry bootstrap (main/index) is responsible for mounting.
-    // Provide ReactDOM global compatibility for ReactDOM.createRoot usage.
-    window.ReactDOM = { createRoot };
+    // Boot file already mounted the app.
     `
       : `
     const AppComponent = typeof App !== 'undefined' ? App :
@@ -451,7 +449,7 @@ ${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
     } catch (err) {
       document.getElementById('root').innerHTML =
         '<div style="padding:2rem;color:#f38ba8;font-family:monospace"><h3>Render Error</h3><pre>' +
-        String(err?.stack || err?.message || err).replace(/</g,'&lt;') + '</pre></div>';
+        String(err?.stack || err?.message || err).split('<').join('&lt;') + '</pre></div>';
       console.error('Render failed:', err);
     }
     `;
@@ -476,7 +474,9 @@ ${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
     import { createRoot } from 'react-dom/client';
 
     // Globals used by transpiled JSX or legacy snippets
+    const ReactDOM = { createRoot };
     window.React = React;
+    window.ReactDOM = ReactDOM;
 
     // Import router (may not be used, wrapped in try)
     let HashRouter, BrowserRouter, Routes, Route, Link, NavLink, useNavigate, useParams, useLocation, Navigate, Outlet, useSearchParams;
