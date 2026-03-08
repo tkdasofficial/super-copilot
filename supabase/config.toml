@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.image-to-image]
 verify_jwt = false
+
+[functions.pexels-videos]
+verify_jwt = false
