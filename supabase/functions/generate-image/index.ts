@@ -106,22 +106,18 @@ serve(async (req) => {
 
     if (!taskId) {
       // Some models return images directly
-      const rawImages = createData.data?.images?.generated || createData.data?.images || createData.data || [];
-      const images = (Array.isArray(rawImages) ? rawImages : [rawImages]).map((img: any) =>
-        typeof img === "string" ? { url: img } : img
-      );
+      const generated = createData.data?.generated || createData.data?.images?.generated || [];
+      const urls: string[] = Array.isArray(generated) ? generated : [generated];
+      const images = urls.filter(Boolean).map((url: string) => ({ url }));
       return new Response(
         JSON.stringify({ images }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Poll for completion
-    const result = await pollTask(FREEPIK_API_KEY, model, taskId);
-    const rawImages = result.data?.images?.generated || result.data?.images || result.data || [];
-    const images = (Array.isArray(rawImages) ? rawImages : [rawImages]).map((img: any) =>
-      typeof img === "string" ? { url: img } : img
-    );
+    // Poll for completion - returns array of URL strings
+    const urls = await pollTask(FREEPIK_API_KEY, model, taskId);
+    const images = urls.filter(Boolean).map((url: string) => ({ url }));
 
     return new Response(
       JSON.stringify({ images }),
