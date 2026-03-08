@@ -364,27 +364,16 @@ ${allScenes.map((s, i) => `Scene ${i + 1} (${s.chapterTitle}): "${s.narration}" 
 Return JSON: { "scenes": [{ "index": 0, "keywords": ["primary", "fallback1", "fallback2"] }] }`;
 
         try {
-          const kwRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: keywordPrompt }] }],
-                generationConfig: { temperature: 0.4, responseMimeType: "application/json" },
-              }),
-            }
-          );
-
-          if (kwRes.ok) {
-            const kwData = await kwRes.json();
-            const kwText = kwData.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (kwText) {
-              const refined = JSON.parse(kwText);
-              for (const entry of (refined.scenes || [])) {
-                if (entry.index >= 0 && entry.index < allScenes.length && entry.keywords?.length) {
-                  allScenes[entry.index].stockKeywords = entry.keywords;
-                }
+          const kwData = await callGemini({
+            contents: [{ role: "user", parts: [{ text: keywordPrompt }] }],
+            generationConfig: { temperature: 0.4, responseMimeType: "application/json" },
+          });
+          const kwText = kwData.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (kwText) {
+            const refined = JSON.parse(kwText);
+            for (const entry of (refined.scenes || [])) {
+              if (entry.index >= 0 && entry.index < allScenes.length && entry.keywords?.length) {
+                allScenes[entry.index].stockKeywords = entry.keywords;
               }
             }
           }
