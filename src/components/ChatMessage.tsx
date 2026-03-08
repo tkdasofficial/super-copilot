@@ -12,6 +12,7 @@ import ZipAnalysisCard from "./ZipAnalysisCard";
 import FileConverterCard from "./FileConverterCard";
 import TTSCard from "./TTSCard";
 import FileCreatorCard from "./FileCreatorCard";
+import AgentProgressCard from "./AgentProgressCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
