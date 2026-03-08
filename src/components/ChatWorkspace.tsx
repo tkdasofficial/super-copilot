@@ -25,6 +25,7 @@ const FILE_CREATOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/file
 const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalChatId }: Props) => {
   const [messages, setMessages] = useState<ChatMessageType[]>(initialMessages || []);
   const [isTyping, setIsTyping] = useState(false);
+  const initialMsgCount = useRef((initialMessages || []).length);
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase>("thinking");
   const [chatId, setChatId] = useState<string | null>(externalChatId || null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -580,7 +581,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         {hasMessages ? (
           <div className="py-3">
             {messages.map((msg, i) => (
-              <ChatMessage key={msg.id} message={msg} isNew={i === messages.length - 1 && msg.role === "assistant"} />
+              <ChatMessage key={msg.id} message={msg} isNew={i === messages.length - 1 && msg.role === "assistant" && i >= initialMsgCount.current} />
             ))}
             {isTyping && <TypingIndicator phase={thinkingPhase} />}
           </div>
