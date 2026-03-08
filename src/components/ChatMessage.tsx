@@ -413,7 +413,6 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             {message.zipAnalysis && (
               <ZipAnalysisCard analysis={message.zipAnalysis} />
             )}
-            )}
 
             {/* Action bar */}
             {message.content && typingDone && (
