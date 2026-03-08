@@ -221,18 +221,13 @@ function findEntryPoint(files: ProjectFile[], framework: string, hint?: string):
     return files.find(f => /\.(html|js|ts)$/.test(f.path))?.path || null;
   }
 
-  // Prefer App component entry whenever available.
-  const appEntries = ["src/App.tsx", "src/App.jsx", "App.tsx", "App.jsx"];
-  for (const appEntry of appEntries) {
-    if (files.find(f => f.path === appEntry)) return appEntry;
-  }
-
+  // For React projects, prefer boot files (main/index), never raw HTML.
   if (hint && /\.(tsx?|jsx?)$/.test(hint)) {
     const found = files.find(f => f.path === hint || f.path.endsWith(hint));
     if (found) return found.path;
   }
 
-  // If hint points to HTML, try extracting the module script src as fallback entry
+  // If hint points to HTML, extract module script src (e.g. /src/main.tsx)
   if (hint && hint.endsWith(".html")) {
     const html = files.find(f => f.path === hint || f.path.endsWith(hint));
     if (html) {
@@ -248,6 +243,7 @@ function findEntryPoint(files: ProjectFile[], framework: string, hint?: string):
   const entries = [
     "src/main.tsx", "src/main.jsx", "main.tsx", "main.jsx",
     "src/index.tsx", "src/index.jsx", "index.tsx", "index.jsx",
+    "src/App.tsx", "src/App.jsx", "App.tsx", "App.jsx",
   ];
 
   for (const entry of entries) {
