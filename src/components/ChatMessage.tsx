@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import VideoGenerationCard from "./VideoGenerationCard";
 import VideoEditorCard from "./VideoEditorCard";
+import WebAppPreviewCard from "./WebAppPreviewCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
@@ -53,6 +54,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             <VideoEditorCard
               userMessage={message.videoEdit.userMessage}
             />
+          )}
+          {message.webApp && (
+            <WebAppPreviewCard project={message.webApp} />
           )}
         </div>
       )}
