@@ -40,6 +40,69 @@ const proseClasses = [
   "[&_hr]:border-border [&_hr]:my-4",
 ].join(" ");
 
+/* ── Code block with copy button ── */
+const CodeBlock = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+  const [copied, setCopied] = useState(false);
+  const lang = className?.replace("language-", "") || "";
+  const code = String(children).replace(/\n$/, "");
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="rounded-xl border border-border bg-accent overflow-hidden my-3">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-muted/60 border-b border-border">
+        <div className="flex items-center gap-1.5">
+          <FileCode className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider">{lang || "code"}</span>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        >
+          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre className="p-4 overflow-x-auto">
+        <code className="text-[13px] font-mono bg-transparent p-0">{code}</code>
+      </pre>
+    </div>
+  );
+};
+
+/* Custom markdown components with code block copy */
+const mdComponents: Components = {
+  pre: ({ children }) => <>{children}</>,
+  code: ({ children, className, ...props }: any) => {
+    const isBlock = className?.startsWith("language-") || String(children).includes("\n");
+    if (isBlock) return <CodeBlock className={className}>{children}</CodeBlock>;
+    return <code className="bg-accent px-1.5 py-0.5 rounded-md text-[13px] font-mono" {...props}>{children}</code>;
+  },
+};
+
+/* ── Copy button for task card ── */
+const CardCopyButton = ({ content }: { content: string }) => {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button
+      onClick={handleCopy}
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent/80 bg-accent border border-border transition-colors"
+    >
+      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+};
+
 const NORMAL_CPS = 50;
 const TASK_CPS = 200;
 
