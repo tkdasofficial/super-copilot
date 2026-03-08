@@ -9,6 +9,7 @@ type Props = {
   onNewChat: () => void;
   onSelectChat: (id: string) => void;
   isMainChat: boolean;
+  activeChatId?: string;
   chatHistory: { id: string; title: string; toolId?: string; preview: string; date: string; createdAt: number }[];
 };
 
