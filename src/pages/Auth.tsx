@@ -68,7 +68,7 @@ const Auth = () => {
           setMode("otp-email");
           toast({ title: "2FA Required", description: "We sent a verification code to your email." });
         } else {
-          navigate("/");
+          navigate("/app/new");
         }
       }
     } catch (e: any) {
