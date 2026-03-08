@@ -16,15 +16,25 @@ const getMessageSize = (content: string) => {
   return "long";
 };
 
-const CHARS_PER_SECOND = 100;
+const NORMAL_CPS = 50;
+const TASK_CPS = 200;
 
-const useTypewriter = (text: string, enabled: boolean) => {
+/** Detect if content is a "task" — long structured output like scripts, blogs, code */
+const isTaskContent = (content: string): boolean => {
+  if (content.length < 300) return false;
+  const taskPatterns = /```|#{1,3}\s|(\d+\.\s)|(\*\*[^*]+\*\*.*\n)/;
+  return taskPatterns.test(content);
+};
+
+const useTypewriter = (text: string, enabled: boolean, cps: number) => {
   const [displayed, setDisplayed] = useState(enabled ? "" : text);
   const [done, setDone] = useState(!enabled);
   const rafRef = useRef<number>(0);
   const startRef = useRef<number>(0);
+  const enabledRef = useRef(enabled);
 
   useEffect(() => {
+    enabledRef.current = enabled;
     if (!enabled) {
       setDisplayed(text);
       setDone(true);
@@ -36,7 +46,7 @@ const useTypewriter = (text: string, enabled: boolean) => {
 
     const animate = (now: number) => {
       const elapsed = (now - startRef.current) / 1000;
-      const chars = Math.min(Math.floor(elapsed * CHARS_PER_SECOND), text.length);
+      const chars = Math.min(Math.floor(elapsed * cps), text.length);
       setDisplayed(text.slice(0, chars));
       if (chars < text.length) {
         rafRef.current = requestAnimationFrame(animate);
@@ -46,7 +56,7 @@ const useTypewriter = (text: string, enabled: boolean) => {
     };
     rafRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [text, enabled]);
+  }, [text, enabled, cps]);
 
   return { displayed, done };
 };
@@ -60,7 +70,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
   const { toast } = useToast();
 
   const shouldAnimate = isNew && !isUser;
-  const { displayed: displayedContent, done: typingDone } = useTypewriter(message.content, shouldAnimate);
+  const isTask = isTaskContent(message.content);
+  const cps = isTask ? TASK_CPS : NORMAL_CPS;
+  const { displayed: displayedContent, done: typingDone } = useTypewriter(message.content, shouldAnimate, cps);
   const size = getMessageSize(displayedContent);
 
   const handleCopy = () => {
