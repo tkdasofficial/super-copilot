@@ -299,7 +299,7 @@ const Auth = () => {
 
           {mode === "login" && (
             <button
-              onClick={() => setMode("forgot")}
+              onClick={() => { setMode("forgot"); navigate("/forgot-password"); }}
               className="text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               Forgot password?
