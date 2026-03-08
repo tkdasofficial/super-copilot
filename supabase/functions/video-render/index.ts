@@ -335,8 +335,8 @@ serve(async (req) => {
               const idx = op.sceneIndex ?? 0;
               await sendEvent("task_update", { id: `regen-img-${i}`, status: "working", label: `Regenerate Scene ${idx + 1} Image` });
               try {
-                const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, op.params.newPrompt, propectRatio || "9:16");
-               = { imageUrl: newUrl };
+                const newUrl = await generateImage(FREEPIK_KEY, op.params.newPrompt, projectState.aspectRatio || "9:16");
+                op._result = { imageUrl: newUrl };
                 await sendEvent("task_update", { id: `regen-img-${i}`, status: "done" });
               } catch (e: any) {
                 await sendEvent("task_update", { id: `regen-img-${i}`, status: "error", detail: e.message });
