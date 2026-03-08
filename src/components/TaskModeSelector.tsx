@@ -16,7 +16,7 @@ const TASK_MODES: TaskModeOption[] = [
   { id: "general", label: "General", icon: MessageSquare, description: "Everyday conversations & Q&A" },
   { id: "reasoning", label: "Reasoning", icon: Brain, description: "Deep analysis & problem solving" },
   { id: "developer", label: "Developer", icon: Code, description: "Write, review & debug code" },
-  { id: "designer", label: "Designer", icon: Paintbrush, description: "Generate images & visual content" },
+  { id: "designer", label: "Designer", icon: Paintbrush, description: "Graphics, UI design & image generation" },
   { id: "video", label: "Video", icon: Clapperboard, description: "Create short-form & long-form videos" },
   { id: "agent", label: "Agent", icon: Bot, description: "Build apps & games (2D/3D)" },
 ];

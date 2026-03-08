@@ -71,10 +71,56 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       setThinkingPhase(phase);
     }, 1200);
 
-    // Check if this is an image generation request
-    const isImageGen = taskMode === "designer" || tool?.id === "image-generator" || /\b(generate|create|make|draw|design)\b.*\b(image|picture|photo|illustration|graphic|visual|thumbnail|art)\b/i.test(content);
+    // Designer mode: detect if it's a UI/web design request vs image generation
+    const isUIDesign = taskMode === "designer" && /\b(ui|ux|website|web\s*app|mobile\s*app|landing\s*page|dashboard|layout|wireframe|mockup|prototype|interface|screen|page\s*design|app\s*design|redesign)\b/i.test(content);
+    const isImageGen = (taskMode === "designer" && !isUIDesign) || tool?.id === "image-generator" || /\b(generate|create|make|draw|design)\b.*\b(image|picture|photo|illustration|graphic|visual|thumbnail|art|logo|icon|banner|poster|flyer|infographic|meme)\b/i.test(content);
     const detectedRatio = detectAspectRatio(content);
     const isImageToImage = imageData && isImageGen;
+
+    // UI/Web design → route to code generator with design-focused prompt
+    if (isUIDesign) {
+      try {
+        const designPrompt = `You are a world-class UI/UX designer. Design and build: ${content}. Focus on: stunning visual design, modern UI patterns, smooth animations, responsive layout, proper spacing, beautiful typography, and cohesive color palette. Make it production-quality and pixel-perfect.`;
+        const resp = await fetch(CODE_GEN_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [{ role: "user", content: designPrompt }],
+            quality: "production",
+          }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || "Design generation failed");
+
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: data.explanation || "Here's your UI design!",
+          timestamp: new Date(),
+          webApp: {
+            files: data.files,
+            framework: data.framework,
+            dependencies: data.dependencies || {},
+            entryPoint: data.entryPoint || "index.html",
+            explanation: data.explanation || "",
+            quality: "production",
+          },
+        }]);
+      } catch (e: any) {
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `Sorry, design generation failed: ${e.message}`,
+          timestamp: new Date(),
+        }]);
+      }
+      clearTimeout(phaseTimer);
+      setIsTyping(false);
+      return;
+    }
 
     if (isImageToImage) {
       try {
