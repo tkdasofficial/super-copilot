@@ -277,6 +277,7 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
 
   const updateChatMessages = useCallback((id: string, messages: ChatMessage[]) => {
     setHistory((prev) => prev.map((c) => (c.id === id ? { ...c, messages } : c)));
+    lsSetMessages(id, messages);
 
     // Debounced save — only save the latest message that isn't saved yet
     // We track by checking if the message ID looks like a DB uuid or a timestamp
