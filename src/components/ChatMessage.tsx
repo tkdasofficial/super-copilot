@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import type { ChatMessage as ChatMessageType, StockVideo } from "@/lib/types";
-import { Copy, Check, Play, ExternalLink, Download, Volume2, VolumeX, ThumbsUp, ThumbsDown, Flag } from "lucide-react";
+import { Copy, Check, Play, ExternalLink, Download, Volume2, VolumeX, ThumbsUp, ThumbsDown, Flag, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import type { Components } from "react-markdown";
 import { useToast } from "@/hooks/use-toast";
 import VideoGenerationCard from "./VideoGenerationCard";
 import VideoEditorCard from "./VideoEditorCard";
