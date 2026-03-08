@@ -28,6 +28,8 @@ const FORMAT_MIMES: Record<string, string> = {
   cfg: "text/plain",
   bat: "text/plain",
   rtf: "text/rtf",
+  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  xls: "application/vnd.ms-excel",
 };
 
 const SYSTEM_PROMPT = `You are a professional file creator AI. You generate well-structured, error-free file content based on user requests.
