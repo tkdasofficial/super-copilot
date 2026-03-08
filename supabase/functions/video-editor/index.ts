@@ -194,13 +194,16 @@ VISUAL ANALYSIS:
 
 RULES:
 - Always use edit_video for any editing request, applying multiple operations at once when logical
-- For new video creation, use generate_full_video
+- For SHORT-FORM video (under 60s, TikTok, Reels, Shorts), use generate_full_video (AI images)
+- For LONG-FORM video (60s+, YouTube, educational, documentary), use generate_long_form_video (stock footage from Pexels)
+- When duration > 60s or user mentions "long", "youtube", "documentary", "educational", "essay" -> use generate_long_form_video
+- Long-form defaults: 16:9 aspect ratio, documentary style
 - When asked to improve/enhance, run analyze_visuals first, then apply edit_video based on findings
 - Make professional editing decisions: proper pacing, smooth transitions, visual consistency
 - Be decisive — don't ask the user what to do, just do it professionally
 - When user says "make it better" or "improve it", run analyze_visuals then apply comprehensive edits
 - Always include an explanation of changes made
-- If no video project exists yet, use generate_full_video first`;
+- If no video project exists yet, create one with the appropriate tool`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
