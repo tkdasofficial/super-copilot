@@ -13,8 +13,16 @@ serve(async (req) => {
 
   try {
     const { topic, duration = 45, aspect_ratio = "9:16", style = "engaging" } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+
+    // Gather all Gemini keys for fallback
+    const geminiKeys: string[] = [];
+    for (const suffix of ["", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"]) {
+      const k = Deno.env.get(`GEMINI_API_KEY${suffix}`);
+      if (k) geminiKeys.push(k);
+    }
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (geminiKeys.length === 0 && !GROQ_API_KEY) throw new Error("No AI API keys configured");
+
     if (!topic) {
       return new Response(JSON.stringify({ error: "Topic is required" }), {
         status: 400,
@@ -54,27 +62,57 @@ Rules:
 - Transitions can be: "fade", "cut", "zoom", "slide"
 - Make narration conversational and engaging for short-form content`;
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: "user", parts: [{ text: `Create a ${duration}-second short-form video script about: ${topic}` }] }],
-          generationConfig: {
-            temperature: 0.8,
-            responseMimeType: "application/json",
-          },
-        }),
-      }
-    );
+    const geminiBody = JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: "user", parts: [{ text: `Create a ${duration}-second short-form video script about: ${topic}` }] }],
+      generationConfig: {
+        temperature: 0.8,
+        responseMimeType: "application/json",
+      },
+    });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Gemini error:", res.status, errText);
-      throw new Error(`Gemini API error [${res.status}]`);
+    let res: Response | null = null;
+    let lastError = "";
+
+    for (const key of geminiKeys) {
+      try {
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: geminiBody }
+        );
+        if (r.ok) { res = r; break; }
+        lastError = await r.text();
+        console.warn(`Gemini key failed (${r.status})`);
+        if (r.status !== 429 && r.status !== 503 && r.status !== 500) break;
+      } catch (e) { lastError = String(e); }
     }
+
+    // Groq fallback
+    if (!res?.ok && GROQ_API_KEY) {
+      console.log("Falling back to Groq for video-script");
+      try {
+        const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${GROQ_API_KEY}` },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: `Create a ${duration}-second short-form video script about: ${topic}` },
+            ],
+            temperature: 0.8,
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (groqResp.ok) {
+          const d = await groqResp.json();
+          const t = d.choices?.[0]?.message?.content;
+          if (t) res = new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: t }] } }] }), { status: 200 });
+        } else { lastError = await groqResp.text(); }
+      } catch (e) { console.error("Groq error:", e); }
+    }
+
+    if (!res?.ok) throw new Error(`All AI providers failed: ${lastError.slice(0, 300)}`);
 
     const data = await res.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
