@@ -52,7 +52,7 @@ function transpileFile(file: ProjectFile, stripImports = true): { code: string; 
       production: false,
       filePath: file.path,
     });
-    return { code: result.code };
+    return { code: stripImports ? stripImportExport(result.code) : result.code };
   } catch (err: any) {
     return { code: "", error: `${file.path}: ${err.message}` };
   }
