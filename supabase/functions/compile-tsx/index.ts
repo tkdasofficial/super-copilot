@@ -89,33 +89,51 @@ function stripForInline(code: string): string {
   return result.trim();
 }
 
+/* ── Path helpers ── */
+function normalizePath(path: string): string {
+  const parts = path.split("/");
+  const out: string[] = [];
+  for (const part of parts) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      if (out.length > 0) out.pop();
+      continue;
+    }
+    out.push(part);
+  }
+  return out.join("/");
+}
+
+function dirname(path: string): string {
+  const idx = path.lastIndexOf("/");
+  return idx === -1 ? "" : path.slice(0, idx);
+}
+
 /* ── Resolve import path to a file ── */
-function resolveImport(importPath: string, files: ProjectFile[]): ProjectFile | null {
-  // Normalize: remove leading ./ or src/
-  let normalized = importPath.replace(/^\.\//, "").replace(/^src\//, "");
-  
-  // Try exact match first, then with extensions
-  const candidates = [
-    normalized,
-    `src/${normalized}`,
-    `${normalized}.tsx`,
-    `${normalized}.ts`,
-    `${normalized}.jsx`,
-    `${normalized}.js`,
-    `src/${normalized}.tsx`,
-    `src/${normalized}.ts`,
-    `src/${normalized}.jsx`,
-    `src/${normalized}.js`,
-    `${normalized}/index.tsx`,
-    `${normalized}/index.ts`,
-    `src/${normalized}/index.tsx`,
-    `src/${normalized}/index.ts`,
-  ];
+function resolveImport(importPath: string, fromPath: string, files: ProjectFile[]): ProjectFile | null {
+  const baseCandidates: string[] = [];
+
+  if (importPath.startsWith(".")) {
+    const base = dirname(fromPath);
+    baseCandidates.push(normalizePath(`${base}/${importPath}`));
+  } else if (importPath.startsWith("src/")) {
+    baseCandidates.push(normalizePath(importPath));
+  } else {
+    return null;
+  }
+
+  const candidates: string[] = [];
+  for (const base of baseCandidates) {
+    candidates.push(base);
+    candidates.push(`${base}.tsx`, `${base}.ts`, `${base}.jsx`, `${base}.js`);
+    candidates.push(`${base}/index.tsx`, `${base}/index.ts`, `${base}/index.jsx`, `${base}/index.js`);
+  }
 
   for (const candidate of candidates) {
-    const found = files.find(f => f.path === candidate);
+    const found = files.find(f => normalizePath(f.path) === normalizePath(candidate));
     if (found) return found;
   }
+
   return null;
 }
 
@@ -203,18 +221,13 @@ function findEntryPoint(files: ProjectFile[], framework: string, hint?: string):
     return files.find(f => /\.(html|js|ts)$/.test(f.path))?.path || null;
   }
 
-  // Prefer App component entry whenever available.
-  const appEntries = ["src/App.tsx", "src/App.jsx", "App.tsx", "App.jsx"];
-  for (const appEntry of appEntries) {
-    if (files.find(f => f.path === appEntry)) return appEntry;
-  }
-
+  // For React projects, prefer boot files (main/index), never raw HTML.
   if (hint && /\.(tsx?|jsx?)$/.test(hint)) {
     const found = files.find(f => f.path === hint || f.path.endsWith(hint));
     if (found) return found.path;
   }
 
-  // If hint points to HTML, try extracting the module script src as fallback entry
+  // If hint points to HTML, extract module script src (e.g. /src/main.tsx)
   if (hint && hint.endsWith(".html")) {
     const html = files.find(f => f.path === hint || f.path.endsWith(hint));
     if (html) {
@@ -230,6 +243,7 @@ function findEntryPoint(files: ProjectFile[], framework: string, hint?: string):
   const entries = [
     "src/main.tsx", "src/main.jsx", "main.tsx", "main.jsx",
     "src/index.tsx", "src/index.jsx", "index.tsx", "index.jsx",
+    "src/App.tsx", "src/App.jsx", "App.tsx", "App.jsx",
   ];
 
   for (const entry of entries) {
@@ -258,7 +272,7 @@ function topoSort(
     // Parse imports and visit dependencies first
     const imports = parseImports(file.content);
     for (const imp of imports) {
-      const resolved = resolveImport(imp.path, files);
+      const resolved = resolveImport(imp.path, file.path, files);
       if (resolved) visit(resolved.path);
     }
 
@@ -418,6 +432,27 @@ ${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
 
     const importMap = buildImportMap(dependencies);
     const importMapJSON = JSON.stringify({ imports: importMap }, null, 2);
+    const isBootEntry = /(?:^|\/)(main|index)\.(tsx?|jsx?)$/.test(entry);
+
+    const renderBlock = isBootEntry
+      ? `
+    // Boot file already mounted the app.
+    `
+      : `
+    const AppComponent = typeof App !== 'undefined' ? App :
+                         (() => React.createElement('div', {style:{padding:'2rem',textAlign:'center',fontFamily:'system-ui'}},
+                           React.createElement('h2', null, 'No App component found')));
+
+    try {
+      const root = createRoot(document.getElementById('root'));
+      root.render(React.createElement(AppComponent));
+    } catch (err) {
+      document.getElementById('root').innerHTML =
+        '<div style="padding:2rem;color:#f38ba8;font-family:monospace"><h3>Render Error</h3><pre>' +
+        String(err?.stack || err?.message || err).split('<').join('&lt;') + '</pre></div>';
+      console.error('Render failed:', err);
+    }
+    `;
 
     const html = `<!DOCTYPE html>
 <html lang="en">
@@ -438,8 +473,10 @@ ${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
     import React, { useState, useEffect, useCallback, useRef, useMemo, useContext, createContext, useReducer, forwardRef, memo, Fragment, Suspense, lazy } from 'react';
     import { createRoot } from 'react-dom/client';
 
-    // Make React available globally for JSX
+    // Globals used by transpiled JSX or legacy snippets
+    const ReactDOM = { createRoot };
     window.React = React;
+    window.ReactDOM = ReactDOM;
 
     // Import router (may not be used, wrapped in try)
     let HashRouter, BrowserRouter, Routes, Route, Link, NavLink, useNavigate, useParams, useLocation, Navigate, Outlet, useSearchParams;
@@ -458,28 +495,16 @@ ${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
       Outlet = router.Outlet;
       useSearchParams = router.useSearchParams;
     } catch(e) {
-      console.warn("react-router-dom not available:", e.message);
+      console.warn('react-router-dom not available:', e.message);
     }
 
     // ── Dependency modules (topological order) ──
     ${moduleBlocks.join("\n")}
 
-    // ── App entry ──
+    // ── App/bootstrap entry ──
     ${appCode}
 
-    const AppComponent = typeof App !== 'undefined' ? App :
-                         (() => React.createElement('div', {style:{padding:'2rem',textAlign:'center',fontFamily:'system-ui'}},
-                           React.createElement('h2', null, 'No App component found')));
-
-    try {
-      const root = createRoot(document.getElementById('root'));
-      root.render(React.createElement(AppComponent));
-    } catch (err) {
-      document.getElementById('root').innerHTML =
-        '<div style="padding:2rem;color:#f38ba8;font-family:monospace"><h3>Render Error</h3><pre>' +
-        (err.stack || err.message).replace(/</g,'&lt;') + '</pre></div>';
-      console.error('Render failed:', err);
-    }
+    ${renderBlock}
   <\/script>
 </body>
 </html>`;
