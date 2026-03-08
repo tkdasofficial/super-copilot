@@ -25,6 +25,12 @@ export type StockVideo = {
   previewUrl: string;
 };
 
+export type VideoGeneration = {
+  topic: string;
+  duration: number;
+  aspectRatio: string;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -33,4 +39,5 @@ export type ChatMessage = {
   toolId?: string;
   imageUrl?: string;
   videos?: StockVideo[];
+  videoGeneration?: VideoGeneration;
 };
