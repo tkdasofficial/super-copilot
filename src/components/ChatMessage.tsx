@@ -367,7 +367,6 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                         proseClasses
                       )}>
                         <ReactMarkdown components={mdComponents}>{displayed}</ReactMarkdown>
-                        {isActive && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
                       </div>
                     </div>
                   </div>
@@ -391,7 +390,6 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                     proseClasses
                   )}>
                     <ReactMarkdown components={mdComponents}>{displayed}</ReactMarkdown>
-                    {isActive && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
                   </div>
                 </div>
               );
