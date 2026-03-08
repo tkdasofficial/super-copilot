@@ -139,6 +139,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     if (isUIDesign) {
       try {
         const designPrompt = `You are a world-class UI/UX designer. Design and build: ${content}. Focus on: stunning visual design, modern UI patterns, smooth animations, responsive layout, proper spacing, beautiful typography, and cohesive color palette. Make it production-quality and pixel-perfect.`;
+        dispatchBgTask("code", { prompt: designPrompt, quality: "production" }, chatId || undefined).catch(() => {});
         const resp = await fetch(CODE_GEN_URL, {
           method: "POST",
           headers: {
