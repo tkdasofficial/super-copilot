@@ -11,10 +11,11 @@ type Props = {
   onNewChat: () => void;
   onSelectChat: (id: string) => void;
   isMainChat: boolean;
+  activeChatId?: string;
   chatHistory: { id: string; title: string; toolId?: string }[];
 };
 
-const MobileSidebar = ({ open, onClose, onNewChat, onSelectChat, isMainChat, chatHistory }: Props) => {
+const MobileSidebar = ({ open, onClose, onNewChat, onSelectChat, isMainChat, activeChatId, chatHistory }: Props) => {
   const navigate = useNavigate();
   const { renameChat, deleteChat } = useChatHistory();
   const [editingId, setEditingId] = useState<string | null>(null);
