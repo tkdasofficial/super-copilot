@@ -574,10 +574,15 @@ serve(async (req) => {
 
   try {
     const { messages, framework, projectState, quality, conversationHistory } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
+
+    // Gather all Gemini keys for fallback
+    const geminiKeys: string[] = [];
+    for (const suffix of ["", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"]) {
+      const k = Deno.env.get(`GEMINI_API_KEY${suffix}`);
+      if (k) geminiKeys.push(k);
     }
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (geminiKeys.length === 0 && !GROQ_API_KEY) throw new Error("No AI API keys configured");
 
     // Build conversation for Gemini
     const geminiContents: any[] = [];
