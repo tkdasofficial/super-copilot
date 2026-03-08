@@ -141,16 +141,11 @@ export default function AgentProgressCard({ plan, onComplete }: Props) {
                   )}
 
                   {result?.generatedFile && (
-                    <FileCreatorCard
-                      fileName={result.generatedFile.fileName}
-                      content={result.generatedFile.content}
-                      mimeType={result.generatedFile.mimeType}
-                      format={result.generatedFile.format}
-                    />
+                    <FileCreatorCard file={result.generatedFile} />
                   )}
 
                   {result?.webApp && (
-                    <WebAppPreviewCard data={result.webApp} />
+                    <WebAppPreviewCard project={result.webApp} />
                   )}
 
                   {result?.output && !result?.imageUrl && !result?.generatedFile && !result?.webApp && (
