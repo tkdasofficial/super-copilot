@@ -25,6 +25,9 @@ const Account = () => {
       supabase.from("subscriptions").select("*").eq("user_id", user.id).single().then(({ data }) => {
         if (data) setSub(data);
       });
+      supabase.from("user_2fa").select("enabled").eq("user_id", user.id).maybeSingle().then(({ data }) => {
+        if (data) setTwoFAEnabled(data.enabled);
+      });
     }
   }, [user]);
 
