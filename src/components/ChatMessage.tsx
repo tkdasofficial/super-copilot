@@ -410,6 +410,10 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             {message.webApp && (
               <WebAppPreviewCard project={message.webApp} />
             )}
+            {message.zipAnalysis && (
+              <ZipAnalysisCard analysis={message.zipAnalysis} />
+            )}
+            )}
 
             {/* Action bar */}
             {message.content && typingDone && (
