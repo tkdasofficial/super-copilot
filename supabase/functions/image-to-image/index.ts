@@ -8,10 +8,15 @@ const corsHeaders = {
 
 const ASPECT_RATIOS: Record<string, string> = {
   "1:1": "square_1_1",
-  "4:3": "landscape_4_3",
-  "16:9": "landscape_16_9",
-  "3:4": "portrait_3_4",
-  "9:16": "portrait_9_16",
+  "4:3": "classic_4_3",
+  "3:4": "traditional_3_4",
+  "16:9": "widescreen_16_9",
+  "9:16": "social_story_9_16",
+  "3:2": "standard_3_2",
+  "2:3": "portrait_2_3",
+  "2:1": "horizontal_2_1",
+  "1:2": "vertical_1_2",
+  "4:5": "social_post_4_5",
 };
 
 async function analyzeImageWithGemini(

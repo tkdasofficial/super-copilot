@@ -3,7 +3,7 @@
  * Returns the detected ratio or defaults to "1:1".
  */
 export function detectAspectRatio(prompt: string): string {
-  const supported = ["16:9", "9:16", "4:3", "3:4", "1:1"];
+  const supported = ["16:9", "9:16", "4:3", "3:4", "1:1", "3:2", "2:3", "2:1", "1:2", "4:5"];
 
   // Direct ratio match like "16:9", "4:3", etc.
   const ratioMatch = prompt.match(/\b(\d{1,2}:\d{1,2})\b/);
