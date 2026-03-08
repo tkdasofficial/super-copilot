@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ChatMessage as ChatMessageType, StockVideo } from "@/lib/types";
-import { Copy, Check, Play, ExternalLink, Download, Sparkles } from "lucide-react";
+import { Copy, Check, Play, ExternalLink, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import VideoGenerationCard from "./VideoGenerationCard";
