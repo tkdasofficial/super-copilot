@@ -6,7 +6,8 @@ import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";
 import EmptyState from "./EmptyState";
 import TypingIndicator, { detectPhase, type ThinkingPhase } from "./TypingIndicator";
-
+import { detectAspectRatio } from "@/lib/detect-aspect-ratio";
+import type { TaskMode } from "./TaskModeSelector";
 type Props = {
   tool?: AITool;
   onMenuClick: () => void;
@@ -35,7 +36,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }
   }, [messages, chatId, updateChatMessages]);
 
-  const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }) => {
+  const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, taskMode?: TaskMode) => {
     const userMsg: ChatMessageType = {
       id: Date.now().toString(),
       role: "user",
@@ -64,7 +65,8 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }, 1200);
 
     // Check if this is an image generation request
-    const isImageGen = tool?.id === "image-generator" || /\b(generate|create|make|draw|design)\b.*\b(image|picture|photo|illustration|graphic|visual|thumbnail|art)\b/i.test(content);
+    const isImageGen = taskMode === "creating" || tool?.id === "image-generator" || /\b(generate|create|make|draw|design)\b.*\b(image|picture|photo|illustration|graphic|visual|thumbnail|art)\b/i.test(content);
+    const detectedRatio = detectAspectRatio(content);
     const isImageToImage = imageData && isImageGen;
 
     if (isImageToImage) {
@@ -79,7 +81,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
             image: imageData.base64,
             mimeType: imageData.mimeType,
             instruction: content,
-            aspect_ratio: "1:1",
+            aspect_ratio: detectedRatio,
           }),
         });
         const data = await resp.json();
@@ -119,7 +121,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ prompt: content, aspect_ratio: "1:1", model: "flux" }),
+          body: JSON.stringify({ prompt: content, aspect_ratio: detectedRatio, model: "flux" }),
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error || "Image generation failed");

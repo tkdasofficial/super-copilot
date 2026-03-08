@@ -1,10 +1,11 @@
 import { useState, useRef, type KeyboardEvent } from "react";
-import { ArrowUp, Paperclip, Mic, X, ImageIcon } from "lucide-react";
+import { ArrowUp, Paperclip, Mic, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import TaskModeSelector, { type TaskMode } from "./TaskModeSelector";
 
 type Props = {
   toolName?: string;
-  onSend: (message: string, imageData?: { base64: string; mimeType: string }) => void;
+  onSend: (message: string, imageData?: { base64: string; mimeType: string }, taskMode?: TaskMode) => void;
   disabled?: boolean;
 };
 
@@ -12,6 +13,7 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
   const [value, setValue] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
+  const [taskMode, setTaskMode] = useState<TaskMode>("general");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -31,7 +33,8 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
     if (!hasContent || disabled) return;
     onSend(
       value.trim() || (attachedImage ? "Analyze this image" : ""),
-      attachedImage ? { base64: attachedImage.base64, mimeType: attachedImage.mimeType } : undefined
+      attachedImage ? { base64: attachedImage.base64, mimeType: attachedImage.mimeType } : undefined,
+      taskMode
     );
     setValue("");
     setAttachedImage(null);
@@ -125,6 +128,7 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
               >
                 <Paperclip className="w-[18px] h-[18px]" />
               </button>
+              <TaskModeSelector selectedMode={taskMode} onModeChange={setTaskMode} />
             </div>
 
             <button
