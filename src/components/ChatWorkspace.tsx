@@ -21,6 +21,7 @@ type Props = {
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 const CODE_GEN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/code-generator`;
 const FILE_CREATOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/file-creator`;
+const AGENT_PLANNER_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-planner`;
 
 const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalChatId }: Props) => {
   const [messages, setMessages] = useState<ChatMessageType[]>(initialMessages || []);
