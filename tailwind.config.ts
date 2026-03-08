@@ -91,6 +91,8 @@ export default {
         "slide-out-left": "slide-out-left 0.3s ease-out",
         "typing-dot": "typing-dot 1.4s ease-in-out infinite",
         "spin-slow": "spin-slow 12s linear infinite",
+        "marquee-left": "marquee-left 30s linear infinite",
+        "marquee-right": "marquee-right 30s linear infinite",
       },
     },
   },
