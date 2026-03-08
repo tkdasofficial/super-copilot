@@ -1,17 +1,28 @@
 import { useState, useRef, type KeyboardEvent } from "react";
-import { ArrowUp, Paperclip, Mic, X, ImageIcon } from "lucide-react";
+import { ArrowUp, Paperclip, Mic, X, RectangleHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const ASPECT_RATIOS = [
+  { value: "1:1", label: "1:1", icon: "⬜" },
+  { value: "4:3", label: "4:3", icon: "▬" },
+  { value: "16:9", label: "16:9", icon: "━" },
+  { value: "3:4", label: "3:4", icon: "▮" },
+  { value: "9:16", label: "9:16", icon: "▯" },
+] as const;
 
 type Props = {
   toolName?: string;
-  onSend: (message: string, imageData?: { base64: string; mimeType: string }) => void;
+  onSend: (message: string, imageData?: { base64: string; mimeType: string }, aspectRatio?: string) => void;
   disabled?: boolean;
+  showAspectRatio?: boolean;
 };
 
-const ChatInput = ({ toolName, onSend, disabled }: Props) => {
+const ChatInput = ({ toolName, onSend, disabled, showAspectRatio = false }: Props) => {
   const [value, setValue] = useState("");
   const [isExpanded, setIsExpanded] = useState(false);
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
+  const [aspectRatio, setAspectRatio] = useState("1:1");
+  const [showRatioPicker, setShowRatioPicker] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -31,11 +42,13 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
     if (!hasContent || disabled) return;
     onSend(
       value.trim() || (attachedImage ? "Analyze this image" : ""),
-      attachedImage ? { base64: attachedImage.base64, mimeType: attachedImage.mimeType } : undefined
+      attachedImage ? { base64: attachedImage.base64, mimeType: attachedImage.mimeType } : undefined,
+      aspectRatio
     );
     setValue("");
     setAttachedImage(null);
     setIsExpanded(false);
+    setShowRatioPicker(false);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
@@ -95,6 +108,27 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
             </div>
           )}
 
+          {/* Aspect ratio picker */}
+          {showRatioPicker && showAspectRatio && (
+            <div className="px-3 pt-2 flex items-center gap-1.5 animate-fade-in">
+              <span className="text-[11px] text-muted-foreground mr-1">Ratio:</span>
+              {ASPECT_RATIOS.map((r) => (
+                <button
+                  key={r.value}
+                  onClick={() => setAspectRatio(r.value)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-xs font-medium transition-all",
+                    aspectRatio === r.value
+                      ? "bg-foreground text-background"
+                      : "bg-accent/60 text-muted-foreground hover:text-foreground hover:bg-accent"
+                  )}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Textarea */}
           <textarea
             ref={textareaRef}
@@ -125,6 +159,21 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
               >
                 <Paperclip className="w-[18px] h-[18px]" />
               </button>
+
+              {showAspectRatio && (
+                <button
+                  type="button"
+                  onClick={() => setShowRatioPicker(!showRatioPicker)}
+                  className={cn(
+                    "h-8 px-2 rounded-full flex items-center justify-center gap-1 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors",
+                    showRatioPicker && "bg-accent text-foreground"
+                  )}
+                  title="Aspect ratio"
+                >
+                  <RectangleHorizontal className="w-[16px] h-[16px]" />
+                  <span className="text-[11px] font-medium">{aspectRatio}</span>
+                </button>
+              )}
             </div>
 
             <button
