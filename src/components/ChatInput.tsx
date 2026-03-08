@@ -123,7 +123,7 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                className="w-8 h-8 rounded-full flex items-center justify-center border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                 title="Attach image"
               >
                 <Paperclip className="w-[18px] h-[18px]" />
