@@ -9,6 +9,7 @@ import VideoGenerationCard from "./VideoGenerationCard";
 import VideoEditorCard from "./VideoEditorCard";
 import WebAppPreviewCard from "./WebAppPreviewCard";
 import ZipAnalysisCard from "./ZipAnalysisCard";
+import FileConverterCard from "./FileConverterCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
