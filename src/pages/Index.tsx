@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { AI_TOOLS, type AITool } from "@/lib/mock-data";
+import { useLocation } from "react-router-dom";
+import { type AITool } from "@/lib/mock-data";
 import { useChatHistory } from "@/context/ChatHistoryContext";
 import DesktopSidebar from "@/components/DesktopSidebar";
 import MobileSidebar from "@/components/MobileSidebar";
@@ -10,55 +10,55 @@ import ProfileMenu from "@/components/ProfileMenu";
 const Index = () => {
   const location = useLocation();
   const state = location.state as any;
-  const initialToolId = state?.toolId;
   const initialChatId = state?.chatId;
-  const initialTool = initialToolId ? AI_TOOLS.find((t) => t.id === initialToolId) : undefined;
 
   const { getChatById, history } = useChatHistory();
-  
-  // Load chat from history if chatId is provided
-  const loadedChat = initialChatId ? getChatById(initialChatId) : undefined;
-  const loadedTool = loadedChat?.toolId ? AI_TOOLS.find((t) => t.id === loadedChat.toolId) : undefined;
 
-  const [selectedTool, setSelectedTool] = useState<AITool | undefined>(initialTool || loadedTool);
+  const loadedChat = initialChatId ? getChatById(initialChatId) : undefined;
+
+  const [selectedTool, setSelectedTool] = useState<AITool | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatKey, setChatKey] = useState(0);
+  const [activeChatId, setActiveChatId] = useState<string | undefined>(initialChatId);
 
   const handleNewChat = () => {
     setSelectedTool(undefined);
+    setActiveChatId(undefined);
     setChatKey((k) => k + 1);
   };
 
-  const recentHistory = history.slice(0, 5);
+  const handleSelectChat = (chatId: string) => {
+    setActiveChatId(chatId);
+    setSelectedTool(undefined);
+    setChatKey((k) => k + 1);
+    setSidebarOpen(false);
+  };
+
+  const activeChat = activeChatId ? getChatById(activeChatId) : loadedChat;
 
   return (
-    <div className="flex h-[100dvh] w-screen overflow-hidden bg-background">
+    <div className="flex h-[100dvh] bg-background overflow-hidden">
       <DesktopSidebar
         onNewChat={handleNewChat}
-        isMainChat={!selectedTool}
-        chatHistory={recentHistory}
+        onSelectChat={handleSelectChat}
+        activeChatId={activeChatId}
       />
-
       <MobileSidebar
-        open={sidebarOpen}
+        isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onNewChat={handleNewChat}
-        isMainChat={!selectedTool}
-        chatHistory={recentHistory}
+        onSelectChat={handleSelectChat}
+        activeChatId={activeChatId}
       />
-
-      <div className="flex flex-col flex-1 min-w-0 h-full relative">
-        <div className="absolute top-2.5 right-3 z-30 sm:top-3 sm:right-4">
-          <ProfileMenu />
-        </div>
+      <main className="flex-1 flex flex-col min-w-0">
         <ChatWorkspace
-          key={`${selectedTool?.id ?? "main"}-${chatKey}-${initialChatId || ""}`}
+          key={chatKey}
           tool={selectedTool}
           onMenuClick={() => setSidebarOpen(true)}
-          initialMessages={loadedChat?.messages}
-          chatId={initialChatId}
+          initialMessages={activeChat?.messages}
+          chatId={activeChatId}
         />
-      </div>
+      </main>
     </div>
   );
 };
