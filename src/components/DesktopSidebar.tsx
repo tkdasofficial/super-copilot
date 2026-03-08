@@ -13,7 +13,7 @@ type Props = {
   chatHistory: { id: string; title: string; toolId?: string; preview: string; date: string; createdAt: number }[];
 };
 
-const DesktopSidebar = ({ onNewChat, onSelectChat, isMainChat, chatHistory }: Props) => {
+const DesktopSidebar = ({ onNewChat, onSelectChat, isMainChat, activeChatId, chatHistory }: Props) => {
   const navigate = useNavigate();
   const { renameChat, deleteChat, searchHistory } = useChatHistory();
   const [searchOpen, setSearchOpen] = useState(false);
