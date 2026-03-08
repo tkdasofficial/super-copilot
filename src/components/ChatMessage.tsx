@@ -350,14 +350,19 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               if (!segVisible) return null;
 
               if (seg.type === "task") {
+                const segDone = charCounts[i] >= seg.content.length;
                 return (
                   <div key={i} className="rounded-xl border border-border bg-card overflow-hidden w-full">
-                    <div className="overflow-y-auto p-3 sm:p-4 md:p-5 max-h-[50vh] sm:max-h-[60vh] md:max-h-[70vh]">
+                    <div className="flex items-center justify-between px-3 sm:px-4 md:px-5 pt-2.5 pb-1">
+                      <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Task</span>
+                      {segDone && <CardCopyButton content={seg.content} />}
+                    </div>
+                    <div className="overflow-y-auto px-3 sm:px-4 md:px-5 pb-3 sm:pb-4 max-h-[50vh] sm:max-h-[60vh] md:max-h-[70vh]">
                       <div className={cn(
                         "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground text-[13px] sm:text-sm",
                         proseClasses
                       )}>
-                        <ReactMarkdown>{displayed}</ReactMarkdown>
+                        <ReactMarkdown components={mdComponents}>{displayed}</ReactMarkdown>
                         {isActive && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
                       </div>
                     </div>
