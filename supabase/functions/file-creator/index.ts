@@ -99,8 +99,15 @@ serve(async (req) => {
 
   try {
     const { prompt, format } = await req.json();
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
+
+    // Gather all Gemini keys for fallback
+    const geminiKeys: string[] = [];
+    for (const suffix of ["", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"]) {
+      const k = Deno.env.get(`GEMINI_API_KEY${suffix}`);
+      if (k) geminiKeys.push(k);
+    }
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    if (geminiKeys.length === 0 && !GROQ_API_KEY) throw new Error("No AI API keys configured");
 
     if (!prompt) {
       return new Response(
@@ -113,35 +120,80 @@ serve(async (req) => {
       ? `${prompt}\n\n[Output format: ${format.toUpperCase()} file]`
       : prompt;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{ role: "user", parts: [{ text: userMsg }] }],
-          generationConfig: {
-            temperature: 0.5,
-            maxOutputTokens: 32768,
-            responseMimeType: "application/json",
-          },
-        }),
-      }
-    );
+    // Try each Gemini key
+    let response: Response | null = null;
+    let lastError = "";
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error("Gemini error:", response.status, errText);
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded, try again later." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    for (const key of geminiKeys) {
+      try {
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+              contents: [{ role: "user", parts: [{ text: userMsg }] }],
+              generationConfig: {
+                temperature: 0.5,
+                maxOutputTokens: 32768,
+                responseMimeType: "application/json",
+              },
+            }),
+          }
         );
+        if (r.ok) { response = r; break; }
+        lastError = await r.text();
+        console.warn(`Gemini key failed (${r.status}):`, lastError.slice(0, 200));
+        if (r.status !== 429 && r.status !== 503 && r.status !== 500) break;
+      } catch (e) {
+        lastError = String(e);
       }
+    }
+
+    // Groq fallback
+    if (!response?.ok && GROQ_API_KEY) {
+      console.log("Falling back to Groq for file-creator");
+      try {
+        const groqResp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${GROQ_API_KEY}`,
+          },
+          body: JSON.stringify({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: userMsg },
+            ],
+            temperature: 0.5,
+            max_tokens: 32768,
+            response_format: { type: "json_object" },
+          }),
+        });
+        if (groqResp.ok) {
+          const groqData = await groqResp.json();
+          const groqText = groqData.choices?.[0]?.message?.content;
+          if (groqText) {
+            // Wrap into Gemini-like structure for unified parsing below
+            response = new Response(JSON.stringify({
+              candidates: [{ content: { parts: [{ text: groqText }] } }]
+            }), { status: 200 });
+          }
+        } else {
+          lastError = await groqResp.text();
+          console.error("Groq fallback failed:", lastError.slice(0, 200));
+        }
+      } catch (e) {
+        console.error("Groq error:", e);
+      }
+    }
+
+    if (!response?.ok) {
       return new Response(
-        JSON.stringify({ error: "AI service error" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ error: "All AI providers failed" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
