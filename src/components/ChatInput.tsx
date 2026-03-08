@@ -139,7 +139,16 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled }: P
     e.target.value = "";
   };
 
-  const placeholder = "Ask Copilot...";
+  // Animated dots for placeholder
+  const [dotCount, setDotCount] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDotCount((prev) => (prev + 1) % 4);
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  const placeholder = `Ask Copilot${".".repeat(dotCount)}`;
 
   return (
     <div className="w-full px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
