@@ -476,7 +476,8 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     );
 
     if (isWebAnalysis) {
-      setThinkingPhase("researching");
+      setThinkingPhase("fetching");
+      setTimeout(() => setThinkingPhase("researching"), 3500);
     }
 
     // Regular chat - streaming

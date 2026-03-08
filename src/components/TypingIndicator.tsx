@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 
-export type ThinkingPhase = "thinking" | "creating" | "analyzing" | "working" | "researching" | "writing" | "optimizing";
+export type ThinkingPhase = "thinking" | "creating" | "analyzing" | "working" | "researching" | "fetching" | "writing" | "optimizing";
 
 const PHASE_LABELS: Record<ThinkingPhase, string> = {
   thinking: "Thinking",
   creating: "Creating",
   analyzing: "Analyzing",
   working: "Working",
+  fetching: "Fetching webpage",
   researching: "Researching",
   writing: "Writing",
   optimizing: "Optimizing",
