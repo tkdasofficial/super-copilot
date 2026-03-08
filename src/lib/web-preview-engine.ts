@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 export type GeneratedFile = {
   path: string;
   content: string;
@@ -11,9 +13,90 @@ export type WebAppProject = {
   explanation: string;
 };
 
+export type CompileResult = {
+  success: boolean;
+  html?: string;
+  error?: string;
+  errors?: string[];
+  warnings?: string[];
+  compiledFiles?: number;
+  bundleSize?: number;
+};
+
+/**
+ * Compile project files using the backend esbuild compiler.
+ * Falls back to client-side preview if backend fails.
+ */
+export async function compileProject(
+  files: GeneratedFile[],
+  framework: string,
+  dependencies: Record<string, string> = {},
+  entryPoint?: string,
+  onProgress?: (step: string) => void,
+): Promise<CompileResult> {
+  onProgress?.("Sending to compiler...");
+
+  try {
+    const { data, error } = await supabase.functions.invoke("compile-tsx", {
+      body: { files, framework, dependencies, entryPoint },
+    });
+
+    if (error) {
+      console.warn("Backend compile failed, falling back to client-side:", error);
+      onProgress?.("Falling back to client-side...");
+      return clientSideFallback(files, framework, dependencies);
+    }
+
+    if (data?.success && data?.html) {
+      onProgress?.("Compilation complete");
+      return {
+        success: true,
+        html: data.html,
+        compiledFiles: data.compiledFiles,
+        bundleSize: data.bundleSize,
+        warnings: data.warnings,
+      };
+    }
+
+    if (data?.errors?.length) {
+      // Backend returned compilation errors — try client-side as fallback
+      console.warn("Backend compile errors:", data.errors);
+      onProgress?.("Retrying with fallback compiler...");
+      const fallback = clientSideFallback(files, framework, dependencies);
+      return {
+        ...fallback,
+        warnings: data.errors, // pass backend errors as warnings
+      };
+    }
+
+    return clientSideFallback(files, framework, dependencies);
+  } catch (err: any) {
+    console.warn("Compile request failed:", err);
+    onProgress?.("Using fallback compiler...");
+    return clientSideFallback(files, framework, dependencies);
+  }
+}
+
+/**
+ * Client-side fallback: builds preview HTML without backend compilation.
+ * Uses the original approach with TypeScript stripping.
+ */
+function clientSideFallback(
+  files: GeneratedFile[],
+  framework: string,
+  dependencies: Record<string, string>,
+): CompileResult {
+  try {
+    const html = buildPreviewHTML(files, framework, dependencies);
+    return { success: true, html, warnings: ["Used client-side fallback compiler"] };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
 /**
  * Build a complete HTML string that can be used as iframe srcdoc
- * to preview a generated web app.
+ * to preview a generated web app. (Client-side fallback)
  */
 export function buildPreviewHTML(
   files: GeneratedFile[],
@@ -31,7 +114,6 @@ export function buildPreviewHTML(
     }
   })();
 
-  // Wrap with error boundary & console capture
   return injectRuntimeHelpers(base);
 }
 
@@ -43,7 +125,6 @@ function injectRuntimeHelpers(html: string): string {
   const helperScript = `
 <script>
 (function() {
-  // Console capture — relay to parent
   const _origLog = console.log;
   const _origWarn = console.warn;
   const _origError = console.error;
@@ -60,7 +141,6 @@ function injectRuntimeHelpers(html: string): string {
   console.warn = function() { relay('warn', arguments); _origWarn.apply(console, arguments); };
   console.error = function() { relay('error', arguments); _origError.apply(console, arguments); };
 
-  // Global error handler with overlay
   window.onerror = function(msg, src, line, col, err) {
     const detail = err?.stack || msg;
     relay('error', [detail]);
@@ -83,7 +163,6 @@ function injectRuntimeHelpers(html: string): string {
 })();
 <\/script>`;
 
-  // Insert before </head> or at start
   if (html.includes("</head>")) {
     return html.replace("</head>", helperScript + "\n</head>");
   }
@@ -167,7 +246,6 @@ function buildReactPreview(
   const cssFiles = files.filter((f) => f.path.endsWith(".css"));
   const allStyles = cssFiles.map((f) => f.content).join("\n");
 
-  // Build import map — react-router-dom included by default for multi-page support
   const importMap: Record<string, string> = {
     "react": "https://esm.sh/react@18?dev",
     "react-dom": "https://esm.sh/react-dom@18?dev",
@@ -177,7 +255,6 @@ function buildReactPreview(
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
   };
 
-  // Add user dependencies
   for (const [pkg, version] of Object.entries(dependencies)) {
     if (!importMap[pkg]) {
       const ver = version.replace(/[\^~]/, "");
@@ -185,7 +262,6 @@ function buildReactPreview(
     }
   }
 
-  // Collect module files (non-CSS, non-HTML, non-JSON, non-MD)
   const moduleFiles = files.filter(
     (f) =>
       !f.path.endsWith(".css") &&
@@ -194,24 +270,19 @@ function buildReactPreview(
       !f.path.endsWith(".md")
   );
 
-  // Build dependency graph for proper ordering
   const appCode = appFile ? stripTypeScript(appFile.content) : "";
 
-  // Process all non-app, non-main module files into blob URL modules
   const componentFiles = moduleFiles.filter(
     (f) => f !== appFile && !f.path.includes("main.")
   );
 
-  // Generate blob URL registration for component modules
   const componentRegistrations = componentFiles.map((f) => {
     const code = stripTypeScript(f.content);
     const modulePath = f.path.replace(/^src\//, "./").replace(/\.(tsx?|jsx?)$/, "");
     return { path: modulePath, code, originalPath: f.path };
   });
 
-  // Build inline script that registers all components
   const componentSetup = componentRegistrations.map((c) => {
-    // Create a simple namespace for components
     const varName = c.originalPath
       .replace(/^src\//, "")
       .replace(/\.(tsx?|jsx?)$/, "")
@@ -247,7 +318,6 @@ const __module_${varName} = (function() {
 
     ${appCode}
 
-    // Find the App component
     const AppComponent = typeof App !== 'undefined' ? App :
                          typeof Default !== 'undefined' ? Default :
                          () => React.createElement('div', { style: { padding: '2rem', textAlign: 'center' } }, 'No App component found');
@@ -264,7 +334,6 @@ const __module_${varName} = (function() {
  */
 function extractExportNames(code: string): string[] {
   const names: string[] = [];
-  // Match: const/let/var/function/class Name
   const patterns = [
     /(?:const|let|var)\s+(\w+)\s*=/g,
     /function\s+(\w+)/g,
@@ -278,7 +347,6 @@ function extractExportNames(code: string): string[] {
       }
     }
   }
-  // Dedupe
   return [...new Set(names)];
 }
 
@@ -288,34 +356,25 @@ function extractExportNames(code: string): string[] {
 function stripTypeScript(code: string): string {
   let result = code;
 
-  // Remove import statements (handled via importmap or inlined globally)
   result = result.replace(/^import\s+.*?from\s+['"].*?['"];?\s*$/gm, "");
   result = result.replace(/^import\s+['"].*?['"];?\s*$/gm, "");
   result = result.replace(/^import\s+type\s+.*$/gm, "");
 
-  // Remove export default — keep the declaration
   result = result.replace(/^export\s+default\s+/gm, "");
 
-  // Remove named exports
   result = result.replace(/^export\s+(?=(?:const|let|var|function|class|type|interface|enum))/gm, "");
 
-  // Remove standalone export { ... } statements
   result = result.replace(/^export\s*\{[^}]*\};?\s*$/gm, "");
 
-  // Remove type/interface blocks
   result = result.replace(/^(?:export\s+)?type\s+\w+\s*=\s*[^;]*;/gm, "");
   result = result.replace(/^(?:export\s+)?interface\s+\w+\s*\{[^}]*\}/gm, "");
 
-  // Remove type annotations: `: Type` before = , ; ) ] }
   result = result.replace(/:\s*(?:string|number|boolean|any|void|null|undefined|never|unknown|React\.\w+(?:<[^>]*>)?|\w+(?:<[^>]*>)?(?:\[\])?(?:\s*\|\s*(?:string|number|boolean|null|undefined|\w+))*)\s*(?=[=,;\)\]\}\n])/g, "");
 
-  // Remove generic type parameters from function declarations/calls
   result = result.replace(/<(?:string|number|boolean|any|void|null|undefined|never|unknown|\w+)(?:\[\])?\s*(?:,\s*(?:string|number|boolean|any|void|null|undefined|never|unknown|\w+)(?:\[\])?)*>/g, "");
 
-  // Remove "as Type" assertions
   result = result.replace(/\s+as\s+\w+(?:<[^>]*>)?/g, "");
 
-  // Remove non-null assertions (!)
   result = result.replace(/(\w)\!/g, "$1");
 
   return result;
