@@ -37,8 +37,8 @@ const getDateLabel = (ts: number): string => {
 };
 
 /** Serialize a ChatMessage's extra data into a JSONB-safe metadata object */
-function buildMetadata(msg: ChatMessage): Record<string, unknown> {
-  const meta: Record<string, unknown> = {};
+function buildMetadata(msg: ChatMessage): Record<string, any> {
+  const meta: Record<string, any> = {};
   if (msg.toolId) meta.toolId = msg.toolId;
   if (msg.videos) meta.videos = msg.videos;
   if (msg.videoGeneration) meta.videoGeneration = msg.videoGeneration;
