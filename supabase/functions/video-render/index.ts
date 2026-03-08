@@ -182,7 +182,7 @@ serve(async (req) => {
           // ── Full generation pipeline ──
           await sendEvent("task_update", { id: "script", status: "working", label: "Write Script" });
 
-          const script = await generateScript(topic, duration, aspect_ratio, style);
+          const script = await generateScript(ion, aspect_ratio, style);
 
           await sendEvent("task_update", { id: "script", status: "done", label: "Write Script", detail: `${script.scenes.length} scenes` });
           await sendEvent("script_ready", { script });
@@ -202,7 +202,7 @@ serve(async (req) => {
             await sendEvent("task_update", { id: `img-${i}`, status: "working" });
             let imageUrl: string;
             try {
-              imageUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, scene.imagePrompt, aspect_ratio);
+              imageUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, rompt, aspect_ratio);
               await sendEvent("task_update", { id: `img-${i}`, status: "done", detail: "Ready" });
             } catch (e: any) {
               await sendEvent("task_update", { id: `img-${i}`, status: "error", detail: e.message });
