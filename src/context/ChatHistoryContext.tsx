@@ -102,9 +102,15 @@ function rowToMessage(row: any): ChatMessage {
 }
 
 export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
-  const [history, setHistory] = useState<ChatHistoryItem[]>([]);
+  // Initialize from localStorage cache for instant render
+  const [history, setHistory] = useState<ChatHistoryItem[]>(() => lsGetSessions());
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+
+  // Sync history to localStorage whenever it changes
+  useEffect(() => {
+    if (history.length > 0) lsSetSessions(history);
+  }, [history]);
 
   // Load sessions from Supabase on mount / user change
   useEffect(() => {
@@ -118,7 +124,6 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
 
     const loadSessions = async () => {
       setLoading(true);
-      // Only load sessions from last 7 days
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
       const { data, error } = await supabase
@@ -143,7 +148,7 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
         preview: s.preview,
         date: getDateLabel(new Date(s.created_at).getTime()),
         createdAt: new Date(s.created_at).getTime(),
-        messages: [], // lazy-loaded
+        messages: [],
       }));
 
       setHistory(items);
