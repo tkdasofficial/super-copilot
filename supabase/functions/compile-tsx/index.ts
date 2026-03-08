@@ -26,17 +26,23 @@ type CompileRequest = {
  * Transpile a single file using sucrase.
  * Handles TSX, JSX, TypeScript, and regular JS.
  */
-function transpileFile(file: ProjectFile): { code: string; error?: string } {
+function transpileFile(file: ProjectFile, stripImports = true): { code: string; error?: string } {
   const ext = file.path.match(/\.(tsx?|jsx?)$/)?.[1] || "";
   
-  // Determine transforms based on file extension
-  const transforms: Array<"typescript" | "jsx" | "imports"> = ["imports"];
-  if (ext === "tsx" || ext === "ts") transforms.unshift("typescript");
+  // Only apply typescript and jsx transforms — keep ES imports/exports intact
+  // so they work with the browser's import map
+  const transforms: Array<"typescript" | "jsx"> = [];
+  if (ext === "tsx" || ext === "ts") transforms.push("typescript");
   if (ext === "tsx" || ext === "jsx") transforms.push("jsx");
   
   // Skip non-JS files
   if (!ext && !file.path.endsWith(".js")) {
     return { code: file.content };
+  }
+
+  // If no transforms needed, return as-is
+  if (transforms.length === 0) {
+    return { code: stripImports ? stripImportExport(file.content) : file.content };
   }
 
   try {
