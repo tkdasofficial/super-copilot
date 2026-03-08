@@ -166,6 +166,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_2fa: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -222,6 +246,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_2fa_by_email: { Args: { _email: string }; Returns: boolean }
       cleanup_old_chat_sessions: { Args: never; Returns: undefined }
       has_role: {
         Args: {

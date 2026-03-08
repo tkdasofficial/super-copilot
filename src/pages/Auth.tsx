@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Mail, Lock, User, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, ArrowLeft, ShieldCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import logo from "@/assets/logo.svg";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
-type Mode = "login" | "signup" | "forgot";
+type Mode = "login" | "signup" | "forgot" | "otp";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
 
   const handleEmailAuth = async () => {
     if (!email) return;
@@ -41,12 +43,44 @@ const Auth = () => {
         if (error) throw error;
         toast({ title: "Account created", description: "Check your email to confirm your account." });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        // Login flow - check 2FA first
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate("/");
+
+        // Check if 2FA is enabled
+        const { data: twoFA } = await supabase.rpc("check_2fa_by_email", { _email: email });
+
+        if (twoFA) {
+          // Sign out the password session, then send OTP
+          await supabase.auth.signOut();
+          const { error: otpError } = await supabase.auth.signInWithOtp({ email });
+          if (otpError) throw otpError;
+          setMode("otp");
+          toast({ title: "2FA Required", description: "We sent a verification code to your email." });
+        } else {
+          navigate("/");
+        }
       }
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.length < 6) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode,
+        type: "email",
+      });
+      if (error) throw error;
+      navigate("/");
+    } catch (e: any) {
+      toast({ title: "Invalid code", description: e.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -61,6 +95,64 @@ const Auth = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
+
+  if (mode === "otp") {
+    return (
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4">
+        <div className="w-full max-w-sm space-y-6">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <ShieldCheck className="w-7 h-7 text-primary" />
+            </div>
+            <h1 className="font-display text-xl font-semibold text-foreground">Two-Factor Authentication</h1>
+            <p className="text-sm text-muted-foreground text-center">
+              Enter the 6-digit code sent to <span className="font-medium text-foreground">{email}</span>
+            </p>
+          </div>
+
+          <div className="flex justify-center">
+            <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+              <InputOTPGroup>
+                <InputOTPSlot index={0} />
+                <InputOTPSlot index={1} />
+                <InputOTPSlot index={2} />
+                <InputOTPSlot index={3} />
+                <InputOTPSlot index={4} />
+                <InputOTPSlot index={5} />
+              </InputOTPGroup>
+            </InputOTP>
+          </div>
+
+          <button
+            onClick={handleVerifyOtp}
+            disabled={loading || otpCode.length < 6}
+            className="w-full py-2.5 rounded-xl bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {loading ? "Verifying..." : "Verify"}
+          </button>
+
+          <div className="flex flex-col items-center gap-2">
+            <button
+              onClick={async () => {
+                const { error } = await supabase.auth.signInWithOtp({ email });
+                if (!error) toast({ title: "Code resent", description: "Check your email." });
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Resend code
+            </button>
+            <button
+              onClick={() => { setMode("login"); setOtpCode(""); }}
+              className="flex items-center gap-1 text-xs text-foreground font-medium hover:underline"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back to sign in
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100dvh] bg-background flex items-center justify-center px-4">
