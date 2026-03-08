@@ -83,7 +83,6 @@ const DesktopSidebar = ({ onNewChat, isMainChat, chatHistory }: Props) => {
           <span>Chat</span>
         </button>
       </div>
-      </div>
 
       {displayHistory.length > 0 && (
         <div className="px-3 pt-4 flex-1 overflow-y-auto">
