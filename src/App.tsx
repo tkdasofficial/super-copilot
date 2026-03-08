@@ -20,6 +20,10 @@ import AdminUsers from "./pages/admin/Users";
 import AdminSubscriptions from "./pages/admin/Subscriptions";
 import AdminReports from "./pages/admin/Reports";
 import AdminNotifications from "./pages/admin/Notifications";
+import AdminChatSessions from "./pages/admin/ChatSessions";
+import AdminBackgroundTasks from "./pages/admin/BackgroundTasks";
+import AdminAnalytics from "./pages/admin/Analytics";
+import AdminSystemSettings from "./pages/admin/SystemSettings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
