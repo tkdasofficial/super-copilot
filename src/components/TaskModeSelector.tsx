@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Plus, MessageSquare, Brain, Code, Paintbrush, Hammer, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Plus, MessageSquare, Brain, Code, Paintbrush, Hammer } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type TaskMode = "general" | "thinking" | "coding" | "creating" | "building";
@@ -26,16 +27,27 @@ type Props = {
 
 const TaskModeSelector = ({ selectedMode, onModeChange }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
-  const popupRef = useRef<HTMLDivElement>(null);
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const popupWidth = 208; // w-52 = 13rem = 208px
+      let left = rect.left + rect.width / 2 - popupWidth / 2;
+      // Clamp to viewport
+      if (left < 8) left = 8;
+      if (left + popupWidth > window.innerWidth - 8) left = window.innerWidth - 8 - popupWidth;
+      setPopupPos({ top: rect.top - 8, left });
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
-        popupRef.current &&
-        !popupRef.current.contains(e.target as Node) &&
-        buttonRef.current &&
-        !buttonRef.current.contains(e.target as Node)
+        popupRef.current && !popupRef.current.contains(e.target as Node) &&
+        buttonRef.current && !buttonRef.current.contains(e.target as Node)
       ) {
         setIsOpen(false);
       }
@@ -47,60 +59,63 @@ const TaskModeSelector = ({ selectedMode, onModeChange }: Props) => {
   const currentMode = TASK_MODES.find((m) => m.id === selectedMode) || TASK_MODES[0];
 
   return (
-    <div className="relative">
+    <>
       <button
         ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+          "w-8 h-8 rounded-full flex items-center justify-center border transition-colors",
           isOpen
-            ? "bg-foreground text-background"
-            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+            ? "bg-foreground text-background border-foreground"
+            : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
         )}
         title={`Mode: ${currentMode.label}`}
       >
         <Plus className={cn("w-[18px] h-[18px] transition-transform", isOpen && "rotate-45")} />
       </button>
 
-      {isOpen && (
-        <div
-          ref={popupRef}
-          className="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 w-52 bg-card border border-border rounded-xl shadow-lg overflow-hidden z-50 animate-in fade-in slide-in-from-bottom-2 duration-200"
-        >
-          <div className="px-3 py-2 border-b border-border">
-            <p className="text-xs font-medium text-muted-foreground">Select task mode</p>
-          </div>
-          <div className="p-1.5">
-            {TASK_MODES.map((mode) => {
-              const Icon = mode.icon;
-              const isSelected = mode.id === selectedMode;
-              return (
-                <button
-                  key={mode.id}
-                  onClick={() => {
-                    onModeChange(mode.id);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors",
-                    isSelected
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  )}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium leading-tight">{mode.label}</p>
-                    <p className="text-[11px] text-muted-foreground leading-tight">{mode.description}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
+      {isOpen &&
+        createPortal(
+          <div
+            ref={popupRef}
+            style={{ position: "fixed", top: popupPos.top, left: popupPos.left, transform: "translateY(-100%)" }}
+            className="w-52 bg-card border border-border rounded-xl shadow-xl z-[9999] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
+          >
+            <div className="px-3 py-2 border-b border-border">
+              <p className="text-xs font-medium text-muted-foreground">Select task mode</p>
+            </div>
+            <div className="p-1.5">
+              {TASK_MODES.map((mode) => {
+                const Icon = mode.icon;
+                const isSelected = mode.id === selectedMode;
+                return (
+                  <button
+                    key={mode.id}
+                    onClick={() => {
+                      onModeChange(mode.id);
+                      setIsOpen(false);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-left transition-colors",
+                      isSelected
+                        ? "bg-accent text-foreground"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    )}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium leading-tight">{mode.label}</p>
+                      <p className="text-[11px] text-muted-foreground leading-tight">{mode.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 };
 
