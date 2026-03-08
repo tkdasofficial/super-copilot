@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu } from "lucide-react";
-import type { AITool, ChatMessage as ChatMessageType } from "@/lib/mock-data";
+import type { AITool, ChatMessage as ChatMessageType } from "@/lib/types";
 import { useChatHistory } from "@/context/ChatHistoryContext";
 import ChatInput from "./ChatInput";
 import ChatMessage from "./ChatMessage";

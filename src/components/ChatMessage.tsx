@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ChatMessage as ChatMessageType } from "@/lib/mock-data";
+import type { ChatMessage as ChatMessageType } from "@/lib/types";
 import { Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
