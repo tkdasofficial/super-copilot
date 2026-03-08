@@ -39,19 +39,19 @@ const ProfileMenu = () => {
             <DropdownMenuSeparator />
           </>
         )}
-        <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/account")}>
+        <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/app/account")}>
           <User className="w-4 h-4" />
           <span>Account</span>
         </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/settings")}>
+        <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/app/settings")}>
           <Settings className="w-4 h-4" />
           <span>Settings</span>
         </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/inbox")}>
+        <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/app/inbox")}>
           <Inbox className="w-4 h-4" />
           <span>Inbox</span>
         </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2.5 cursor-pointer text-primary" onClick={() => navigate("/upgrade")}>
+        <DropdownMenuItem className="gap-2.5 cursor-pointer text-primary" onClick={() => navigate("/app/upgrade")}>
           <Crown className="w-4 h-4" />
           <span>Upgrade Plan</span>
         </DropdownMenuItem>
@@ -73,7 +73,7 @@ const ProfileMenu = () => {
           <Shield className="w-4 h-4" />
           <span>Privacy Policy</span>
         </DropdownMenuItem>
-        <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/support")}>
+        <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/app/support")}>
           <HelpCircle className="w-4 h-4" />
           <span>Support</span>
         </DropdownMenuItem>
