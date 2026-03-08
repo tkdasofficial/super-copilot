@@ -27,6 +27,43 @@ type ChatHistoryContextType = {
 
 const ChatHistoryContext = createContext<ChatHistoryContextType | null>(null);
 
+/* ── localStorage cache helpers ── */
+const LS_SESSIONS_KEY = "sc_chat_sessions";
+const LS_MESSAGES_PREFIX = "sc_chat_msgs_";
+const LS_MAX_CACHED_CHATS = 50;
+
+function lsGetSessions(): ChatHistoryItem[] {
+  try {
+    const raw = localStorage.getItem(LS_SESSIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function lsSetSessions(items: ChatHistoryItem[]) {
+  try {
+    // Store without messages to keep size small
+    const slim = items.slice(0, LS_MAX_CACHED_CHATS).map(({ messages, ...rest }) => ({ ...rest, messages: [] }));
+    localStorage.setItem(LS_SESSIONS_KEY, JSON.stringify(slim));
+  } catch { /* quota exceeded — silently ignore */ }
+}
+
+function lsGetMessages(sessionId: string): ChatMessage[] | null {
+  try {
+    const raw = localStorage.getItem(LS_MESSAGES_PREFIX + sessionId);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function lsSetMessages(sessionId: string, msgs: ChatMessage[]) {
+  try {
+    localStorage.setItem(LS_MESSAGES_PREFIX + sessionId, JSON.stringify(msgs));
+  } catch { /* quota exceeded */ }
+}
+
+function lsRemoveMessages(sessionId: string) {
+  try { localStorage.removeItem(LS_MESSAGES_PREFIX + sessionId); } catch {}
+}
+
 const getDateLabel = (ts: number): string => {
   const now = new Date();
   const d = new Date(ts);
