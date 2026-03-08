@@ -294,11 +294,10 @@ serve(async (req) => {
   try {
     const { topic, duration = 120, aspect_ratio = "16:9", style = "cinematic" } = await req.json();
 
-    const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
     const TTS_KEY = Deno.env.get("GOOGLE_TTS_API_KEY");
     const PEXELS_KEY = Deno.env.get("PEXELS_API_KEY");
 
-    if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY not configured");
+    if (getGeminiKeys().length === 0) throw new Error("No Gemini API keys configured");
     if (!PEXELS_KEY) throw new Error("PEXELS_API_KEY not configured");
 
     const orientation = getOrientation(aspect_ratio);
