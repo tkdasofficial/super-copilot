@@ -1,5 +1,5 @@
-import { useState, useRef, type KeyboardEvent } from "react";
-import { ArrowUp, Paperclip, Mic, X } from "lucide-react";
+import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+import { ArrowUp, Paperclip, Mic, MicOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TaskModeSelector, { type TaskMode } from "./TaskModeSelector";
 
@@ -14,8 +14,56 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const [taskMode, setTaskMode] = useState<TaskMode>("general");
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Setup speech recognition
+  useEffect(() => {
+    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognitionAPI) return;
+
+    const recognition = new SpeechRecognitionAPI();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let transcript = "";
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setValue(transcript);
+      // Auto-resize textarea
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+        const nextHeight = Math.min(textareaRef.current.scrollHeight, 150);
+        textareaRef.current.style.height = `${nextHeight}px`;
+        setIsExpanded(nextHeight > 52);
+      }
+    };
+
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      recognition.abort();
+    };
+  }, []);
+
+  const toggleListening = () => {
+    if (!recognitionRef.current) return;
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
 
   const hasText = value.trim().length > 0;
   const hasContent = hasText || attachedImage;
@@ -31,6 +79,10 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
 
   const handleSend = () => {
     if (!hasContent || disabled) return;
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
     onSend(
       value.trim() || (attachedImage ? "Analyze this image" : ""),
       attachedImage ? { base64: attachedImage.base64, mimeType: attachedImage.mimeType } : undefined,
@@ -131,19 +183,31 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
               <TaskModeSelector selectedMode={taskMode} onModeChange={setTaskMode} />
             </div>
 
-            <button
-              type="button"
-              onClick={hasContent ? handleSend : undefined}
-              disabled={hasContent ? disabled : false}
-              className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center border transition-all",
-                hasContent
-                  ? "bg-foreground text-background border-foreground hover:opacity-80 disabled:opacity-50"
-                  : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
-              )}
-            >
-              {hasContent ? <ArrowUp className="w-[18px] h-[18px]" /> : <Mic className="w-[18px] h-[18px]" />}
-            </button>
+            {!hasContent && (
+              <button
+                type="button"
+                onClick={toggleListening}
+                className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center border transition-all",
+                  isListening
+                    ? "bg-destructive text-destructive-foreground border-destructive animate-pulse"
+                    : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
+                )}
+                title={isListening ? "Stop listening" : "Voice input"}
+              >
+                {isListening ? <MicOff className="w-[18px] h-[18px]" /> : <Mic className="w-[18px] h-[18px]" />}
+              </button>
+            )}
+            {hasContent && (
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={disabled}
+                className="w-8 h-8 rounded-full flex items-center justify-center border bg-foreground text-background border-foreground hover:opacity-80 disabled:opacity-50 transition-all"
+              >
+                <ArrowUp className="w-[18px] h-[18px]" />
+              </button>
+            )}
           </div>
         </div>
 
