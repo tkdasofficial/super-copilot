@@ -89,33 +89,51 @@ function stripForInline(code: string): string {
   return result.trim();
 }
 
+/* ── Path helpers ── */
+function normalizePath(path: string): string {
+  const parts = path.split("/");
+  const out: string[] = [];
+  for (const part of parts) {
+    if (!part || part === ".") continue;
+    if (part === "..") {
+      if (out.length > 0) out.pop();
+      continue;
+    }
+    out.push(part);
+  }
+  return out.join("/");
+}
+
+function dirname(path: string): string {
+  const idx = path.lastIndexOf("/");
+  return idx === -1 ? "" : path.slice(0, idx);
+}
+
 /* ── Resolve import path to a file ── */
-function resolveImport(importPath: string, files: ProjectFile[]): ProjectFile | null {
-  // Normalize: remove leading ./ or src/
-  let normalized = importPath.replace(/^\.\//, "").replace(/^src\//, "");
-  
-  // Try exact match first, then with extensions
-  const candidates = [
-    normalized,
-    `src/${normalized}`,
-    `${normalized}.tsx`,
-    `${normalized}.ts`,
-    `${normalized}.jsx`,
-    `${normalized}.js`,
-    `src/${normalized}.tsx`,
-    `src/${normalized}.ts`,
-    `src/${normalized}.jsx`,
-    `src/${normalized}.js`,
-    `${normalized}/index.tsx`,
-    `${normalized}/index.ts`,
-    `src/${normalized}/index.tsx`,
-    `src/${normalized}/index.ts`,
-  ];
+function resolveImport(importPath: string, fromPath: string, files: ProjectFile[]): ProjectFile | null {
+  const baseCandidates: string[] = [];
+
+  if (importPath.startsWith(".")) {
+    const base = dirname(fromPath);
+    baseCandidates.push(normalizePath(`${base}/${importPath}`));
+  } else if (importPath.startsWith("src/")) {
+    baseCandidates.push(normalizePath(importPath));
+  } else {
+    return null;
+  }
+
+  const candidates: string[] = [];
+  for (const base of baseCandidates) {
+    candidates.push(base);
+    candidates.push(`${base}.tsx`, `${base}.ts`, `${base}.jsx`, `${base}.js`);
+    candidates.push(`${base}/index.tsx`, `${base}/index.ts`, `${base}/index.jsx`, `${base}/index.js`);
+  }
 
   for (const candidate of candidates) {
-    const found = files.find(f => f.path === candidate);
+    const found = files.find(f => normalizePath(f.path) === normalizePath(candidate));
     if (found) return found;
   }
+
   return null;
 }
 
