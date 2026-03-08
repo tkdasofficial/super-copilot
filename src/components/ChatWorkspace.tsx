@@ -12,7 +12,7 @@ import { getCategory } from "@/lib/file-converter";
 import { analyzeZip } from "@/lib/zip-analyzer";
 import type { TaskMode } from "./TaskModeSelector";
 import { useBackgroundTasks, type BackgroundTask } from "@/hooks/useBackgroundTasks";
-import BackgroundTaskBanner from "./BackgroundTaskBanner";
+
 type Props = {
   tool?: AITool;
   onMenuClick: () => void;
@@ -755,10 +755,6 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        {/* Background task banners */}
-        {activeTasks.map((task) => (
-          <BackgroundTaskBanner key={task.id} task={task} onResult={handleBgTaskResult} />
-        ))}
         {hasMessages ? (
           <div className="py-3">
             {messages.map((msg, i) => (
