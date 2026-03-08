@@ -304,56 +304,35 @@ const WebAppPreviewCard = ({ project }: Props) => {
           </div>
         </div>
 
-        {/* Build steps — shown during compilation or as summary */}
-        {!allStepsDone ? (
-          <div className="px-3 sm:px-4 py-3 space-y-1">
-            {buildSteps.map((step, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "flex items-center gap-2.5 py-1.5 px-2 rounded-lg transition-all duration-300",
-                  step.status === "in_progress" && "bg-primary/5",
-                )}
-              >
-                <StepIcon status={step.status} />
-                <span className={cn(
-                  "text-xs sm:text-[13px] transition-colors",
-                  step.status === "done" && "text-foreground/70",
-                  step.status === "in_progress" && "text-foreground font-medium",
-                  step.status === "pending" && "text-muted-foreground",
-                  step.status === "error" && "text-destructive",
-                )}>
-                  {step.label}
-                </span>
-                {step.status === "in_progress" && (
-                  <span className="text-[10px] text-primary ml-auto animate-pulse">running...</span>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          /* After build: show inline webview preview */
-          <div className="relative bg-background">
-            <iframe
-              ref={iframeRef}
-              srcDoc={previewHTML}
-              sandbox="allow-scripts"
-              className="w-full h-[350px] sm:h-[400px] border-0"
-              title="Web App Preview"
-            />
-            {/* Overlay open button */}
-            <button
-              onClick={() => setShowFullPreview(true)}
-              className="absolute top-2 right-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-card/90 backdrop-blur-sm border border-border text-xs font-medium text-foreground hover:bg-card transition-colors shadow-sm"
+        {/* Build steps — ALWAYS shown as primary content */}
+        <div className="px-3 sm:px-4 py-3 space-y-1">
+          {buildSteps.map((step, i) => (
+            <div
+              key={i}
+              className={cn(
+                "flex items-center gap-2.5 py-1.5 px-2 rounded-lg transition-all duration-300",
+                step.status === "in_progress" && "bg-primary/5",
+              )}
             >
-              <Eye className="w-3.5 h-3.5" />
-              Fullscreen
-            </button>
-          </div>
-        )}
+              <StepIcon status={step.status} />
+              <span className={cn(
+                "text-xs sm:text-[13px] transition-colors",
+                step.status === "done" && "text-foreground/70",
+                step.status === "in_progress" && "text-foreground font-medium",
+                step.status === "pending" && "text-muted-foreground",
+                step.status === "error" && "text-destructive",
+              )}>
+                {step.label}
+              </span>
+              {step.status === "in_progress" && (
+                <span className="text-[10px] text-primary ml-auto animate-pulse">running...</span>
+              )}
+            </div>
+          ))}
+        </div>
 
         {/* Warnings */}
-        {compileWarnings.length > 0 && allStepsDone && (
+        {compileWarnings.length > 0 && (
           <div className="px-3 sm:px-4 py-2">
             <div className="px-2 py-1.5 rounded-lg bg-accent/50 text-[11px] text-muted-foreground">
               {compileWarnings.map((w, i) => (
@@ -366,9 +345,19 @@ const WebAppPreviewCard = ({ project }: Props) => {
           </div>
         )}
 
-        {/* Action bar — only when ready */}
+        {/* Action bar — shown when ready */}
         {allStepsDone && phase === "ready" && (
           <div className="px-3 sm:px-4 pb-2 pt-1 flex flex-wrap gap-2">
+            <button
+              onClick={() => setShowFullPreview(true)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+                "bg-primary/10 text-primary hover:bg-primary/20 border-primary/20"
+              )}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              Preview
+            </button>
             <button
               onClick={() => setExpandedView(expandedView === "code" ? null : "code")}
               className={cn(
