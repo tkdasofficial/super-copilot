@@ -82,22 +82,7 @@ const DesktopSidebar = ({ onNewChat, isMainChat, chatHistory }: Props) => {
           <MessageSquare className="w-4 h-4" />
           <span>Chat</span>
         </button>
-
-        <button
-          onClick={() => navigate("/apps")}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-        >
-          <Grid3X3 className="w-4 h-4" />
-          <span>Explore Apps</span>
-        </button>
-
-        <button
-          onClick={() => navigate("/history")}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-        >
-          <Clock className="w-4 h-4" />
-          <span>History</span>
-        </button>
+      </div>
       </div>
 
       {displayHistory.length > 0 && (
