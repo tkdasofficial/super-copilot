@@ -418,6 +418,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             {message.convertFile && (
               <FileConverterCard file={message.convertFile} />
             )}
+            {message.ttsScript && (
+              <TTSCard script={message.ttsScript} />
+            )}
 
             {/* Action bar */}
             {message.content && typingDone && (

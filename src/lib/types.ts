@@ -91,4 +91,5 @@ export type ChatMessage = {
   webApp?: WebAppData;
   zipAnalysis?: ZipAnalysis;
   convertFile?: File;
+  ttsScript?: string;
 };
