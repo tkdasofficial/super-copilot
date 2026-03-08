@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.visual-analysis]
 verify_jwt = false
+
+[functions.long-form-pipeline]
+verify_jwt = false
