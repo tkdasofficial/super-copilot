@@ -20,7 +20,7 @@ const MODEL_ENDPOINTS: Record<string, string> = {
   "flux-pro": "flux-pro-v1-1",
 };
 
-async function pollTask(apiKey: string, model: string, taskId: string, maxAttempts = 30): Promise<any> {
+async function pollTask(apiKey: string, model: string, taskId: string, maxAttempts = 30): Promise<string[]> {
   const endpoint = MODEL_ENDPOINTS[model] || "flux-dev";
   
   for (let i = 0; i < maxAttempts; i++) {
@@ -37,11 +37,14 @@ async function pollTask(apiKey: string, model: string, taskId: string, maxAttemp
     }
     
     const data = await res.json();
+    const status = data.data?.status || data.status;
     
-    if (data.status === "COMPLETED" || data.data?.status === "COMPLETED") {
-      return data;
+    if (status === "COMPLETED") {
+      // Extract URLs from various response shapes
+      const generated = data.data?.generated || data.generated || [];
+      return Array.isArray(generated) ? generated : [generated];
     }
-    if (data.status === "FAILED" || data.data?.status === "FAILED") {
+    if (status === "FAILED") {
       throw new Error("Image generation failed");
     }
   }
