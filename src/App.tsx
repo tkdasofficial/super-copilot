@@ -55,11 +55,15 @@ const App = () => (
               <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="subscriptions" element={<AdminSubscriptions />} />
+                <Route path="chat-sessions" element={<AdminChatSessions />} />
+                <Route path="background-tasks" element={<AdminBackgroundTasks />} />
+                <Route path="analytics" element={<AdminAnalytics />} />
                 <Route path="reports" element={<AdminReports />} />
                 <Route path="notifications" element={<AdminNotifications />} />
+                <Route path="system" element={<AdminSystemSettings />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

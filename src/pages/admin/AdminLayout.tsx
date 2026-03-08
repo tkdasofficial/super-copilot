@@ -10,6 +10,10 @@ import {
   ArrowLeft,
   Menu,
   X,
+  MessageSquare,
+  Zap,
+  TrendingUp,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.svg";
@@ -18,8 +22,12 @@ const NAV_ITEMS = [
   { path: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/admin/users", label: "Users", icon: Users },
   { path: "/admin/subscriptions", label: "Subscriptions", icon: CreditCard },
+  { path: "/admin/chat-sessions", label: "Chat Sessions", icon: MessageSquare },
+  { path: "/admin/background-tasks", label: "Background Tasks", icon: Zap },
+  { path: "/admin/analytics", label: "Analytics", icon: TrendingUp },
   { path: "/admin/reports", label: "Reports", icon: BarChart3 },
   { path: "/admin/notifications", label: "Notifications", icon: Bell },
+  { path: "/admin/system", label: "System", icon: Settings },
 ];
 
 const AdminLayout = () => {
