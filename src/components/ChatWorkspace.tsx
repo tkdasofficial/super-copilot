@@ -154,6 +154,55 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       return;
     }
 
+    // Full-Stack web app builder detection
+    const isFullstack = taskMode === "fullstack" || /\b(build|create|make|generate)\b.*\b(web\s*app|website|landing\s*page|dashboard|portfolio|SPA|single.page.app)\b/i.test(content);
+
+    if (isFullstack) {
+      try {
+        // Gather existing project state from previous messages
+        const lastWebApp = [...messages].reverse().find((m) => m.webApp)?.webApp;
+
+        const resp = await fetch(CODE_GEN_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [{ role: "user", content }],
+            projectState: lastWebApp || undefined,
+          }),
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || "Code generation failed");
+
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: data.explanation || "Here's your generated web application!",
+          timestamp: new Date(),
+          webApp: {
+            files: data.files,
+            framework: data.framework,
+            dependencies: data.dependencies || {},
+            entryPoint: data.entryPoint || "index.html",
+            explanation: data.explanation || "",
+          },
+        }]);
+      } catch (e: any) {
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `Sorry, code generation failed: ${e.message}`,
+          timestamp: new Date(),
+        }]);
+      }
+      clearTimeout(phaseTimer);
+      setIsTyping(false);
+      return;
+    }
+
     // AI Video editing / generation detection
     const isVideoEdit = /\b(edit|cut|trim|crop|add\s*(text|music|filter|transition|overlay|effect)|change\s*(speed|timing|pacing)|slow\s*mo|speed\s*up|reorder|split|delete\s*scene|regenerate|re-?render|improve\s*video|enhance\s*video|make\s*(it|the\s*video)\s*(better|shorter|longer|faster|slower)|analyz|check\s*quality|visual\s*consistency|quality\s*check)\b/i.test(content);
     const isVideoCreation = /\b(create|make|generate|produce)\b.*\b(video|short|reel|tiktok|clip|documentary|youtube|essay|explainer)\b.*\b(about|on|for|of)\b/i.test(content)
