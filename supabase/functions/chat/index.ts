@@ -17,13 +17,54 @@ const TOOL_SYSTEM_PROMPTS: Record<string, string> = {
 
 const DEFAULT_SYSTEM_PROMPT = `You are Super Copilot, a powerful AI assistant for content creators. You help with brainstorming, writing, strategy, analysis, and creative tasks. Be helpful, concise, and actionable. Format responses clearly with structured sections when appropriate.`;
 
+const WEB_ANALYSIS_SYSTEM_PROMPT = `You are Super Copilot with web analysis capabilities. When a user provides a URL or asks about a website, use your Google Search grounding capabilities to find real, up-to-date information about that website.
+
+Your analysis should include (when publicly available):
+1. **Website Overview** — What the site is about, its purpose, and owner/company
+2. **Key Features & Content** — Main offerings, services, or content available
+3. **Technology Stack** — Any known technologies, frameworks, or platforms used
+4. **Traffic & Popularity** — Known rankings, traffic estimates, or popularity metrics
+5. **Reputation & Reviews** — Public sentiment, reviews, or notable mentions
+6. **Social Presence** — Social media links, follower counts if known
+7. **SEO & Domain Info** — Domain age, authority indicators if available
+
+If the website requires authentication or login to view content, clearly state:
+"⚠️ **Authentication Required** — This website requires login/authentication to access its content. The details shown are based on publicly available information only. To view protected content, you would need valid credentials or an authorized account."
+
+If information is limited, explain what data is publicly available and what requires authentication. Always be honest about what you can and cannot access. Use grounded, factual data from Google Search — never fabricate details.`;
+
+// Detect URLs in message content
+function containsUrl(text: string): boolean {
+  return /https?:\/\/[^\s<>"{}|\\^`\[\]]+/i.test(text) ||
+    /(?:^|\s)(www\.[^\s<>"{}|\\^`\[\]]+)/i.test(text);
+}
+
+// Detect if user is asking to analyze/check a website
+function isWebAnalysisRequest(text: string): boolean {
+  const lower = text.toLowerCase();
+  const hasUrl = containsUrl(text);
+  if (!hasUrl) return false;
+
+  // Check for analysis intent keywords
+  const hasAnalysisIntent = /\b(analy[sz]e|check|review|inspect|scan|audit|examine|tell\s*me\s*about|what\s*is|details?\s*(about|of|on)|info(rmation)?\s*(about|of|on)|describe|explain|overview|look\s*at|visit|open|show\s*me|go\s*to|about\s*this|what.*website|website.*what)\b/i.test(lower);
+
+  // If there's a URL and analysis intent, or just a URL with minimal other text
+  if (hasAnalysisIntent) return true;
+
+  // If the message is mostly just a URL (short message with URL)
+  const urlRemoved = text.replace(/https?:\/\/[^\s]+/g, "").replace(/www\.[^\s]+/g, "").trim();
+  if (urlRemoved.length < 30 && hasUrl) return true;
+
+  return false;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { messages, toolId } = await req.json();
+    const { messages, toolId, webAnalysis } = await req.json();
 
     // Gather all API keys for fallback
     const geminiKeys: string[] = [];
@@ -36,9 +77,21 @@ serve(async (req) => {
       throw new Error("No AI API keys configured");
     }
 
-    const systemPrompt = toolId && TOOL_SYSTEM_PROMPTS[toolId]
-      ? TOOL_SYSTEM_PROMPTS[toolId]
-      : DEFAULT_SYSTEM_PROMPT;
+    // Determine if this is a web analysis request
+    const lastUserMsg = [...messages].reverse().find((m: any) => m.role === "user");
+    const lastUserText = typeof lastUserMsg?.content === "string"
+      ? lastUserMsg.content
+      : (Array.isArray(lastUserMsg?.content)
+        ? lastUserMsg.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join(" ")
+        : "");
+
+    const isWebAnalysis = webAnalysis === true || isWebAnalysisRequest(lastUserText);
+
+    const systemPrompt = isWebAnalysis
+      ? WEB_ANALYSIS_SYSTEM_PROMPT
+      : (toolId && TOOL_SYSTEM_PROMPTS[toolId]
+        ? TOOL_SYSTEM_PROMPTS[toolId]
+        : DEFAULT_SYSTEM_PROMPT);
 
     // Convert OpenAI-style messages to Gemini format
     const geminiContents: any[] = [];
@@ -70,6 +123,17 @@ serve(async (req) => {
       }
     }
 
+    // Build request body — add Google Search grounding for web analysis
+    const geminiBody: any = {
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: geminiContents,
+    };
+
+    if (isWebAnalysis) {
+      // Enable Google Search grounding for real-time web data
+      geminiBody.tools = [{ google_search: {} }];
+    }
+
     // Try each Gemini key, then fall back to Groq
     let response: Response | null = null;
     let lastError = "";
@@ -81,10 +145,7 @@ serve(async (req) => {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              system_instruction: { parts: [{ text: systemPrompt }] },
-              contents: geminiContents,
-            }),
+            body: JSON.stringify(geminiBody),
           }
         );
         if (r.ok) { response = r; break; }
@@ -100,8 +161,8 @@ serve(async (req) => {
       }
     }
 
-    // Groq fallback (non-streaming, converted to SSE)
-    if (!response?.ok && GROQ_API_KEY) {
+    // Groq fallback (non-streaming, converted to SSE) — skip for web analysis (no grounding support)
+    if (!response?.ok && GROQ_API_KEY && !isWebAnalysis) {
       console.log("All Gemini keys exhausted, falling back to Groq");
       try {
         const groqMessages = [
@@ -172,13 +233,21 @@ serve(async (req) => {
 
             try {
               const parsed = JSON.parse(jsonStr);
-              const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (text) {
-                // Convert to OpenAI-compatible SSE format
-                const chunk = {
-                  choices: [{ delta: { content: text } }],
-                };
-                await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+              // Extract text from all parts (grounding responses may have multiple parts)
+              const parts = parsed.candidates?.[0]?.content?.parts;
+              if (parts) {
+                let textContent = "";
+                for (const part of parts) {
+                  if (part.text) {
+                    textContent += part.text;
+                  }
+                }
+                if (textContent) {
+                  const chunk = {
+                    choices: [{ delta: { content: textContent } }],
+                  };
+                  await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+                }
               }
             } catch {
               // partial JSON, skip
