@@ -202,7 +202,8 @@ serve(async (req) => {
             await sendEvent("task_update", { id: `img-${i}`, status: "working" });
             let imageUrl: string;
             try {
-              imageUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, rompt, aspec            ent("task_up `img-${i}`, status: "done", detail: "Ready" });
+              imageUrl = await generateImage(FREEPIK_KEY, scene.imagePrompt, aspect_ratio);
+              await sendEvent("task_update", { id: `img-${i}`, status: "done", detail: "Ready" });
             } catch (e: any) {
               await sendEvent("task_update", { id: `img-${i}`, status: "error", detail: e.message });
               throw e;
