@@ -81,7 +81,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
             image: imageData.base64,
             mimeType: imageData.mimeType,
             instruction: content,
-            aspect_ratio: "1:1",
+            aspect_ratio: detectedRatio,
           }),
         });
         const data = await resp.json();
