@@ -136,10 +136,10 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
               onClick={hasContent ? handleSend : undefined}
               disabled={hasContent ? disabled : false}
               className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center transition-all",
+                "w-8 h-8 rounded-full flex items-center justify-center border transition-all",
                 hasContent
-                  ? "bg-foreground text-background hover:opacity-80 disabled:opacity-50"
-                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                  ? "bg-foreground text-background border-foreground hover:opacity-80 disabled:opacity-50"
+                  : "border-border text-muted-foreground hover:text-foreground hover:bg-accent"
               )}
             >
               {hasContent ? <ArrowUp className="w-[18px] h-[18px]" /> : <Mic className="w-[18px] h-[18px]" />}
