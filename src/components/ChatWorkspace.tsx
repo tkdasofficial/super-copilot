@@ -221,6 +221,55 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       return;
     }
 
+    // File creation detection — user wants AI to create/write a file
+    const fileFormatMatch = content.match(/\b(?:as|in|to|into)\s+(?:a\s+)?\.?(txt|pdf|md|html|css|csv|json|xml|js|ts|py|sql|yaml|toml|sh|bat|rtf|log|ini|cfg|env)\b/i)
+      || content.match(/\.?(txt|pdf|md|html|css|csv|json|xml|js|ts|py|sql|yaml|toml|sh|bat|rtf)\s+(?:file|format|document)/i);
+    const isFileCreate = /\b(write|create|generate|make|draft|compose|prepare)\b.*\b(file|document|script|letter|resume|report|essay|article|blog|story|poem|contract|invoice|receipt|plan|outline|notes|summary|readme|changelog|license|config|template|list|schedule|agenda|minutes|proposal|brief|spec|documentation|manual|guide|tutorial|faq|terms|policy|privacy)\b/i.test(content)
+      || /\b(save|export|download)\b.*\b(as|to|into)\b.*\b(txt|pdf|md|html|csv|json|xml|file)\b/i.test(content)
+      || /\b(write|create)\b.*\b(txt|pdf|md|html|csv|json|xml)\b/i.test(content);
+
+    if (isFileCreate && !isAgent) {
+      const detectedFormat = fileFormatMatch?.[1]?.toLowerCase() || "txt";
+
+      try {
+        setThinkingPhase("working");
+        const resp = await fetch(FILE_CREATOR_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ prompt: content, format: detectedFormat }),
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || "File creation failed");
+
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: data.explanation || `Here's your generated **${data.fileName}** file:`,
+          timestamp: new Date(),
+          generatedFile: {
+            fileName: data.fileName,
+            content: data.content,
+            mimeType: data.mimeType,
+            format: data.format,
+          },
+        }]);
+      } catch (e: any) {
+        setMessages((prev) => [...prev, {
+          id: (Date.now() + 1).toString(),
+          role: "assistant",
+          content: `Sorry, file creation failed: ${e.message}`,
+          timestamp: new Date(),
+        }]);
+      }
+      clearTimeout(phaseTimer);
+      setIsTyping(false);
+      return;
+    }
+
     // TTS / Voiceover detection
     const isTTS = /\b(voice\s*over|voiceover|tts|text[\s-]*to[\s-]*speech|narrat|read\s*aloud|speak\s*this|audio\s*of|convert\s*to\s*(speech|audio|voice)|generate\s*(voice|audio|speech|narration))\b/i.test(content);
     if (isTTS) {
