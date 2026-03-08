@@ -59,7 +59,7 @@ const Auth = () => {
             toast({ title: "2FA Required", description: "Enter the code from your authenticator app." });
           } else {
             // Factor not found, proceed normally
-            navigate("/");
+            navigate("/app/new");
           }
         } else if (twoFAMethod === "email") {
           await supabase.auth.signOut();
