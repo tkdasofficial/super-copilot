@@ -161,6 +161,30 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
 
   // Load messages for a specific chat session
   const loadChatMessages = useCallback(async (sessionId: string): Promise<ChatMessage[]> => {
+    // Try localStorage cache first for instant load
+    const cached = lsGetMessages(sessionId);
+    if (cached && cached.length > 0) {
+      setHistory((prev) =>
+        prev.map((h) => (h.id === sessionId ? { ...h, messages: cached } : h))
+      );
+      // Still fetch from DB in background to get latest
+      supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("session_id", sessionId)
+        .order("created_at", { ascending: true })
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            const msgs = data.map(rowToMessage);
+            lsSetMessages(sessionId, msgs);
+            setHistory((prev) =>
+              prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h))
+            );
+          }
+        });
+      return cached;
+    }
+
     const { data, error } = await supabase
       .from("chat_messages")
       .select("*")
@@ -173,8 +197,8 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const msgs = (data || []).map(rowToMessage);
+    lsSetMessages(sessionId, msgs);
 
-    // Cache in history state
     setHistory((prev) =>
       prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h))
     );
