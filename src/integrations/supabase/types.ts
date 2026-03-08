@@ -249,7 +249,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      check_2fa_by_email: { Args: { _email: string }; Returns: boolean }
+      check_2fa_by_email: { Args: { _email: string }; Returns: string }
       cleanup_old_chat_sessions: { Args: never; Returns: undefined }
       has_role: {
         Args: {
