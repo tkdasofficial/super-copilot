@@ -59,32 +59,25 @@ function transpileFile(file: ProjectFile, stripImports = true): { code: string; 
 }
 
 /**
- * Strip import/export statements for inline execution.
- * After sucrase converts them to require/module.exports,
- * we transform those into our module system.
+ * Strip ES import/export statements for inline execution in a script module
+ * where React etc. are already available via top-level imports.
  */
-function stripModuleSystem(code: string): string {
+function stripImportExport(code: string): string {
   let result = code;
   
-  // Remove require() calls (sucrase converts imports to require)
-  result = result.replace(/^(?:const|let|var)\s+.*?=\s*require\(["'].*?["']\);?\s*$/gm, "");
-  result = result.replace(/^require\(["'].*?["']\);?\s*$/gm, "");
+  // Remove import statements (React etc. are globally available via top-level import)
+  result = result.replace(/^import\s+.*?from\s+['"].*?['"];?\s*$/gm, "");
+  result = result.replace(/^import\s+['"].*?['"];?\s*$/gm, "");
+  result = result.replace(/^import\s+type\s+.*$/gm, "");
   
-  // Remove Object.defineProperty for __esModule
-  result = result.replace(/^Object\.defineProperty\(exports.*?\);?\s*$/gm, "");
+  // Remove export default — keep the declaration
+  result = result.replace(/^export\s+default\s+/gm, "");
   
-  // Convert exports.X = X to just keep the declaration
-  result = result.replace(/^exports\.(\w+)\s*=\s*(\w+);?\s*$/gm, "");
-  result = result.replace(/^exports\.default\s*=\s*(\w+);?\s*$/gm, "");
+  // Remove named exports keyword but keep declarations
+  result = result.replace(/^export\s+(?=(?:const|let|var|function|class)\s)/gm, "");
   
-  // Remove "use strict"
-  result = result.replace(/^"use strict";?\s*$/gm, "");
-  
-  // Handle module.exports = X
-  result = result.replace(/^module\.exports\s*=\s*(\w+);?\s*$/gm, "");
-  
-  // Handle exports.default = Component pattern
-  result = result.replace(/^exports\.default\s*=\s*/gm, "");
+  // Remove standalone export { ... } statements
+  result = result.replace(/^export\s*\{[^}]*\};?\s*$/gm, "");
   
   return result.trim();
 }
