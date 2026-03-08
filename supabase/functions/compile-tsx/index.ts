@@ -374,6 +374,17 @@ var __mod_result = (function() {
 })();
 ${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
 `);
+var __mod_result = (function() {
+  try {
+    ${stripped}
+    ${returnObj}
+  } catch(e) {
+    console.warn("Module ${file.path} error:", e.message);
+    return {};
+  }
+})();
+${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
+`);
     }
 
     // Transpile app entry
