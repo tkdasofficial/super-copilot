@@ -11,6 +11,7 @@ import WebAppPreviewCard from "./WebAppPreviewCard";
 import ZipAnalysisCard from "./ZipAnalysisCard";
 import FileConverterCard from "./FileConverterCard";
 import TTSCard from "./TTSCard";
+import FileCreatorCard from "./FileCreatorCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
