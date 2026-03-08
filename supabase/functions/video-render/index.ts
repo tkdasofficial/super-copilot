@@ -90,22 +90,13 @@ async function generateTTS(ttsKey: string, text: string): Promise<string> {
   return data.audioContent; // base64 MP3
 }
 
-// ── Enhance prompt via Gemini ──
-async function enhancePrompt(geminiKey: string, prompt: string): Promise<string> {
+// ── Enhance prompt via Gemini (with fallback) ──
+async function enhancePrompt(prompt: string): Promise<string> {
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: "Enhance this image prompt for AI generation. Include subject, composition, lighting, color, mood, camera angle. Output ONLY the enhanced text under 200 words." }] },
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-        }),
-      }
-    );
-    if (!res.ok) return prompt;
-    const data = await res.json();
+    const data = await callGemini({
+      system_instruction: { parts: [{ text: "Enhance this image prompt for AI generation. Include subject, composition, lighting, color, mood, camera angle. Output ONLY the enhanced text under 200 words." }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+    });
     return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || prompt;
   } catch { return prompt; }
 }

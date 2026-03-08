@@ -159,10 +159,7 @@ serve(async (req) => {
   try {
     const { image, mimeType, instruction, aspect_ratio = "1:1" } = await req.json();
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const FREEPIK_API_KEY = Deno.env.get("FREEPIK_API_KEY");
-
-    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not configured");
     if (!FREEPIK_API_KEY) throw new Error("FREEPIK_API_KEY is not configured");
 
     if (!image || !instruction) {
@@ -172,9 +169,8 @@ serve(async (req) => {
       );
     }
 
-    // Step 1: Analyze image with Gemini
+    // Step 1: Analyze image with Gemini (uses key fallback internally)
     const generatedPrompt = await analyzeImageWithGemini(
-      GEMINI_API_KEY,
       image,
       mimeType || "image/png",
       instruction
