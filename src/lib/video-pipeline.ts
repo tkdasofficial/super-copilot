@@ -144,6 +144,11 @@ export async function runVideoPipeline(
               script = { title: event.title, scenes: event.scenes };
               break;
 
+            case "visual_analysis":
+              // Analysis results available — emit for UI display
+              emit({ visualAnalysis: event.analysis } as any);
+              break;
+
             case "error":
               throw new Error(event.message);
 
