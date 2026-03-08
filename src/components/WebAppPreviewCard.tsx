@@ -25,11 +25,12 @@ import { compileProject, type WebAppProject, type GeneratedFile } from "@/lib/we
 import { downloadProjectAsZip } from "@/lib/zip-export";
 import { toast } from "sonner";
 
-type Phase = "compiling" | "ready" | "error";
+type Phase = "compiling" | "ready" | "error" | "auto-fixing";
 type Viewport = "desktop" | "tablet" | "mobile";
 type ConsoleEntry = { level: "log" | "warn" | "error"; message: string; ts: number };
 type StepStatus = "done" | "in_progress" | "pending" | "error";
 type BuildStep = { label: string; status: StepStatus };
+const MAX_AUTO_FIX_ATTEMPTS = 2;
 
 const VIEWPORT_SIZES: Record<Viewport, number> = {
   desktop: 0,
