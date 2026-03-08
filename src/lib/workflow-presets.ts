@@ -248,13 +248,6 @@ export const STUDIO_CATEGORIES: StudioCategory[] = [
         icon: Mail,
         prompt: "Draft 5 versions of a professional email about [topic] to [recipient]. Include: formal, friendly, brief, detailed, and follow-up versions. Then provide subject line options for each. Then export the best version as a text file.",
       },
-      {
-        id: "meeting-notes",
-        name: "Meeting Notes Generator",
-        description: "Structure & summarize meetings",
-        icon: ClipboardList,
-        prompt: "Create structured meeting notes for a meeting about [topic]. Include: attendees section, agenda items, discussion points, decisions made, action items with owners and deadlines, and next steps. Then create a follow-up email draft. Then export as a PDF.",
-      },
     ],
   },
 ];
