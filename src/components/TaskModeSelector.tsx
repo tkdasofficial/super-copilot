@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Plus, MessageSquare, Brain, Code, Paintbrush, Hammer } from "lucide-react";
+import { Plus, MessageSquare, Brain, Code, Paintbrush, Hammer, Video, Clapperboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type TaskMode = "general" | "thinking" | "coding" | "creating" | "building";
+export type TaskMode = "general" | "reasoning" | "developer" | "designer" | "video" | "fullstack";
 
 type TaskModeOption = {
   id: TaskMode;
@@ -13,11 +13,12 @@ type TaskModeOption = {
 };
 
 const TASK_MODES: TaskModeOption[] = [
-  { id: "general", label: "General", icon: MessageSquare, description: "General conversation" },
-  { id: "thinking", label: "Thinking", icon: Brain, description: "Deep reasoning & analysis" },
-  { id: "coding", label: "Coding", icon: Code, description: "Write & debug code" },
-  { id: "creating", label: "Creating", icon: Paintbrush, description: "Generate images & content" },
-  { id: "building", label: "Building", icon: Hammer, description: "Build apps & features" },
+  { id: "general", label: "General", icon: MessageSquare, description: "Everyday conversations & Q&A" },
+  { id: "reasoning", label: "Reasoning", icon: Brain, description: "Deep analysis & problem solving" },
+  { id: "developer", label: "Developer", icon: Code, description: "Write, review & debug code" },
+  { id: "designer", label: "Designer", icon: Paintbrush, description: "Generate images & visual content" },
+  { id: "video", label: "Video", icon: Clapperboard, description: "Create short-form & long-form videos" },
+  { id: "fullstack", label: "Full-Stack", icon: Hammer, description: "Build complete web applications" },
 ];
 
 type Props = {

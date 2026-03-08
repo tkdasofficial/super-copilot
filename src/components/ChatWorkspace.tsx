@@ -65,7 +65,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }, 1200);
 
     // Check if this is an image generation request
-    const isImageGen = taskMode === "creating" || tool?.id === "image-generator" || /\b(generate|create|make|draw|design)\b.*\b(image|picture|photo|illustration|graphic|visual|thumbnail|art)\b/i.test(content);
+    const isImageGen = taskMode === "designer" || tool?.id === "image-generator" || /\b(generate|create|make|draw|design)\b.*\b(image|picture|photo|illustration|graphic|visual|thumbnail|art)\b/i.test(content);
     const detectedRatio = detectAspectRatio(content);
     const isImageToImage = imageData && isImageGen;
 
