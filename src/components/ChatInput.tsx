@@ -15,7 +15,7 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const [taskMode, setTaskMode] = useState<TaskMode>("general");
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
