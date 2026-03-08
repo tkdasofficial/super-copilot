@@ -93,6 +93,66 @@ const Account = () => {
               </button>
             </div>
           </section>
+
+          {/* Security */}
+          <section>
+            <h2 className="font-display text-lg font-semibold text-foreground mb-4">Security</h2>
+            <div className="space-y-4">
+              <button
+                onClick={async () => {
+                  const email = profile?.email || user?.email;
+                  if (!email) return;
+                  setResetLoading(true);
+                  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/reset-password`,
+                  });
+                  setResetLoading(false);
+                  if (error) {
+                    toast({ title: "Error", description: error.message, variant: "destructive" });
+                  } else {
+                    toast({ title: "Check your email", description: "We sent you a password reset link." });
+                  }
+                }}
+                disabled={resetLoading}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card hover:bg-accent transition-colors text-left"
+              >
+                <KeyRound className="w-5 h-5 text-muted-foreground shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">Reset Password</p>
+                  <p className="text-xs text-muted-foreground">Send a password reset link to your email</p>
+                </div>
+                {resetLoading && <div className="w-4 h-4 border-2 border-foreground/20 border-t-foreground rounded-full animate-spin" />}
+              </button>
+
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-card">
+                <ShieldCheck className="w-5 h-5 text-muted-foreground shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-foreground">Two-Factor Authentication</p>
+                  <p className="text-xs text-muted-foreground">Receive an email code on every login</p>
+                </div>
+                <button
+                  disabled={twoFALoading}
+                  onClick={async () => {
+                    if (!user) return;
+                    setTwoFALoading(true);
+                    const newVal = !twoFAEnabled;
+                    const { data: existing } = await supabase.from("user_2fa").select("id").eq("user_id", user.id).maybeSingle();
+                    if (existing) {
+                      await supabase.from("user_2fa").update({ enabled: newVal, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+                    } else {
+                      await supabase.from("user_2fa").insert({ user_id: user.id, enabled: newVal });
+                    }
+                    setTwoFAEnabled(newVal);
+                    setTwoFALoading(false);
+                    toast({ title: newVal ? "2FA enabled" : "2FA disabled" });
+                  }}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${twoFAEnabled ? 'bg-primary' : 'bg-muted'}`}
+                >
+                  <span className={`block w-5 h-5 bg-background rounded-full shadow transition-transform ${twoFAEnabled ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>
