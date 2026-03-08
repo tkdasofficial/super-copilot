@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { X, PenSquare, MessageSquare, Grid3X3, Clock, Pencil, Trash2, Check } from "lucide-react";
+import { X, PenSquare, MessageSquare, Pencil, Trash2, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useChatHistory } from "@/context/ChatHistoryContext";
@@ -72,22 +72,6 @@ const MobileSidebar = ({ open, onClose, onNewChat, isMainChat, chatHistory }: Pr
           >
             <MessageSquare className="w-4 h-4" />
             <span>Chat</span>
-          </button>
-
-          <button
-            onClick={() => { navigate("/apps"); onClose(); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          >
-            <Grid3X3 className="w-4 h-4" />
-            <span>Explore Apps</span>
-          </button>
-
-          <button
-            onClick={() => { navigate("/history"); onClose(); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-          >
-            <Clock className="w-4 h-4" />
-            <span>History</span>
           </button>
         </div>
 
