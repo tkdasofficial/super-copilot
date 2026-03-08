@@ -156,8 +156,27 @@ serve(async (req) => {
 
     const isWebAnalysis = webAnalysis === true || isWebAnalysisRequest(lastUserText);
 
+    // If web analysis, fetch the webpage directly and inject content
+    let webpageContext = "";
+    if (isWebAnalysis) {
+      const urls = extractUrls(lastUserText);
+      if (urls.length > 0) {
+        console.log("Fetching webpage:", urls[0]);
+        const page = await fetchWebpageContent(urls[0]);
+
+        if (page.error === "AUTH_REQUIRED (401)" || page.error === "AUTH_REQUIRED (403)") {
+          webpageContext = `\n\n--- WEBPAGE FETCH RESULT ---\nURL: ${urls[0]}\n⚠️ AUTHENTICATION REQUIRED: The server returned HTTP ${page.error}. This website requires login/authentication. Report this clearly to the user.\n---`;
+        } else if (page.error) {
+          webpageContext = `\n\n--- WEBPAGE FETCH RESULT ---\nURL: ${urls[0]}\n⚠️ Could not fetch page directly (${page.error}). Use Google Search grounding data below instead.\n---`;
+        } else {
+          const metaStr = Object.entries(page.meta).map(([k, v]) => `  ${k}: ${v}`).join("\n");
+          webpageContext = `\n\n--- WEBPAGE CONTENT (FETCHED DIRECTLY) ---\nURL: ${urls[0]}\nTitle: ${page.title}\nMeta Tags:\n${metaStr}\n\nPage Text Content:\n${page.text}\n--- END WEBPAGE CONTENT ---`;
+        }
+      }
+    }
+
     const systemPrompt = isWebAnalysis
-      ? WEB_ANALYSIS_SYSTEM_PROMPT
+      ? WEB_ANALYSIS_SYSTEM_PROMPT + webpageContext
       : (toolId && TOOL_SYSTEM_PROMPTS[toolId]
         ? TOOL_SYSTEM_PROMPTS[toolId]
         : DEFAULT_SYSTEM_PROMPT);
