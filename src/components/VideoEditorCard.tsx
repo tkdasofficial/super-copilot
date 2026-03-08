@@ -304,7 +304,7 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
     if (!videoUrl) return;
     const a = document.createElement("a");
     a.href = videoUrl;
-    a.download = `video_${Date.now()}.webm`;
+    a.download = `video_${Date.now()}.mp4`;
     a.click();
   };
 
