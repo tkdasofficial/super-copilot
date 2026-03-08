@@ -414,6 +414,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             {message.zipAnalysis && (
               <ZipAnalysisCard analysis={message.zipAnalysis} />
             )}
+            {message.convertFile && (
+              <FileConverterCard file={message.convertFile} />
+            )}
 
             {/* Action bar */}
             {message.content && typingDone && (
