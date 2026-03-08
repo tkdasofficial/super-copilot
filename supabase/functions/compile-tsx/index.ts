@@ -39,53 +39,74 @@ function transpileFile(file: ProjectFile): { code: string; error?: string } {
   }
 }
 
-/* ── Extract all exported names from ORIGINAL source ── */
+/* ── Extract exported names from ORIGINAL source ── */
 function extractExports(code: string): { defaultExport: string | null; namedExports: string[] } {
   let defaultExport: string | null = null;
   const namedExports: string[] = [];
 
   // export default function Foo / export default class Foo
-  let m = code.match(/export\s+default\s+(?:function|class)\s+(\w+)/);
+  let m = code.match(/export\s+default\s+(?:function|class)\s+([A-Za-z_$][\w$]*)/);
   if (m) defaultExport = m[1];
 
-  // export default Foo (standalone)
+  // export default Foo;
   if (!defaultExport) {
-    m = code.match(/export\s+default\s+(\w+)\s*;/);
+    m = code.match(/export\s+default\s+([A-Za-z_$][\w$]*)\s*;/);
     if (m) defaultExport = m[1];
   }
 
-  // If no named default, look for the main component/function name
-  if (!defaultExport) {
-    // Check for `const Foo = ...` followed by `export default Foo` or just `export default`
-    const funcMatch = code.match(/(?:const|function|class)\s+([A-Z]\w*)/);
-    if (funcMatch && code.includes("export default")) {
-      defaultExport = funcMatch[1];
-    }
+  // export default <anonymous-expression>
+  if (!defaultExport && /export\s+default\s+/.test(code)) {
+    defaultExport = "__default_export";
   }
 
   // Named exports: export const/let/var/function/class Name
-  const namedPattern = /export\s+(?:const|let|var|function|class)\s+(\w+)/g;
-  let nm;
+  const namedPattern = /export\s+(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g;
+  let nm: RegExpExecArray | null;
   while ((nm = namedPattern.exec(code)) !== null) {
     namedExports.push(nm[1]);
   }
 
-  return { defaultExport, namedExports };
+  // Named export list: export { Foo, Bar as Baz }
+  const exportListPattern = /export\s*\{([^}]*)\}\s*;?/g;
+  let em: RegExpExecArray | null;
+  while ((em = exportListPattern.exec(code)) !== null) {
+    const raw = em[1].split(",").map((s) => s.trim()).filter(Boolean);
+    for (const item of raw) {
+      const imported = item.split(/\s+as\s+/)[0]?.trim();
+      if (imported) namedExports.push(imported);
+    }
+  }
+
+  return { defaultExport, namedExports: Array.from(new Set(namedExports)) };
 }
 
-/* ── Strip imports and exports for inline execution ── */
+/* ── Strip imports/exports for inline execution ── */
 function stripForInline(code: string): string {
   let result = code;
-  // Remove all import statements (use non-multiline to catch mid-line imports from sucrase)
-  result = result.replace(/import\s+[\w{},*\s]+\s+from\s+['"][^'"]*['"];?\s*/g, "");
-  result = result.replace(/import\s+['"][^'"]*['"];?\s*/g, "");
-  result = result.replace(/import\s+type\s+[^;]*;?\s*/g, "");
-  // Remove export default (keep declaration)
-  result = result.replace(/export\s+default\s+/g, "");
-  // Remove named export keyword (keep declaration)  
-  result = result.replace(/export\s+(?=(?:const|let|var|function|class)\s)/g, "");
-  // Remove standalone export { ... }
-  result = result.replace(/^export\s*\{[^}]*\};?\s*$/gm, "");
+
+  // Remove imports (type + runtime, both normal and minified one-line output)
+  result = result.replace(/^\s*import\s+type[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, "");
+  result = result.replace(/^\s*import[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, "");
+  result = result.replace(/^\s*import\s+['"][^'"]+['"];?\s*$/gm, "");
+  result = result.replace(/import\s+[\w*{}\s,]+\s+from\s+['"][^'"]+['"];?\s*/g, "");
+  result = result.replace(/import\s+['"][^'"]+['"];?\s*/g, "");
+
+  // Keep named default declarations intact
+  result = result.replace(/export\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/g, "function $1(");
+  result = result.replace(/export\s+default\s+class\s+([A-Za-z_$][\w$]*)\b/g, "class $1");
+
+  // Convert remaining default exports (anonymous function/class/expression)
+  if (/export\s+default\s+/.test(result)) {
+    result = result.replace(/export\s+default\s+/, "const __default_export = ");
+  }
+
+  // Remove named export keyword (keep declaration)
+  result = result.replace(/^\s*export\s+(?=(?:const|let|var|function|class)\s)/gm, "");
+
+  // Remove export lists / star exports
+  result = result.replace(/^\s*export\s*\{[^}]*\};?\s*$/gm, "");
+  result = result.replace(/^\s*export\s+\*\s+from\s+['"][^'"]+['"];?\s*$/gm, "");
+
   return result.trim();
 }
 
@@ -137,25 +158,88 @@ function resolveImport(importPath: string, fromPath: string, files: ProjectFile[
   return null;
 }
 
-/* ── Parse imports from a file to build dependency graph ── */
-function parseImports(code: string): Array<{ defaultImport: string | null; namedImports: string[]; path: string }> {
-  const imports: Array<{ defaultImport: string | null; namedImports: string[]; path: string }> = [];
-  
+type ParsedImport = {
+  defaultImport: string | null;
+  namedImports: Array<{ imported: string; local: string }>;
+  path: string;
+};
+
+type ModuleBindings = {
+  defaultNames: Set<string>;
+  namedBindings: Map<string, string>; // localName -> exportedName
+};
+
+function isValidIdentifier(name: string): boolean {
+  return /^[A-Za-z_$][\w$]*$/.test(name);
+}
+
+/* ── Parse imports from a file to build dependency graph and symbol bindings ── */
+function parseImports(code: string): ParsedImport[] {
+  const imports: ParsedImport[] = [];
+
   // import Default from './path'
-  // import { Named1, Named2 } from './path'
+  // import { Named1, Named2 as Alias } from './path'
   // import Default, { Named } from './path'
-  const importRegex = /^import\s+(?:(?:(\w+)(?:\s*,\s*)?)?(?:\{([^}]*)\})?\s+from\s+)?['"]([^'"]+)['"];?\s*$/gm;
-  let m;
+  const importRegex = /^\s*import\s+(?:(?:(\w+)(?:\s*,\s*)?)?(?:\{([^}]*)\})?\s*from\s*)?['"]([^'"]+)['"];?\s*$/gm;
+  let m: RegExpExecArray | null;
+
   while ((m = importRegex.exec(code)) !== null) {
+    const statement = m[0];
+    if (/^\s*import\s+type\b/.test(statement)) continue;
+
     const defaultImport = m[1] || null;
-    const namedImports = m[2] ? m[2].split(",").map(s => s.trim().split(/\s+as\s+/).pop()!.trim()).filter(Boolean) : [];
+    const namedImports = (m[2] || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((token) => {
+        const [importedRaw, localRaw] = token.split(/\s+as\s+/).map((s) => s.trim());
+        const imported = importedRaw || "";
+        const local = localRaw || imported;
+        return { imported, local };
+      })
+      .filter((item) => item.imported && item.local);
+
     const path = m[3];
-    // Only process local imports (starting with . or src/)
     if (path.startsWith(".") || path.startsWith("src/")) {
       imports.push({ defaultImport, namedImports, path });
     }
   }
+
   return imports;
+}
+
+function collectModuleBindings(files: ProjectFile[]): Map<string, ModuleBindings> {
+  const bindings = new Map<string, ModuleBindings>();
+
+  for (const file of files) {
+    const imports = parseImports(file.content);
+    for (const imp of imports) {
+      const resolved = resolveImport(imp.path, file.path, files);
+      if (!resolved) continue;
+
+      const key = normalizePath(resolved.path);
+      if (!bindings.has(key)) {
+        bindings.set(key, {
+          defaultNames: new Set<string>(),
+          namedBindings: new Map<string, string>(),
+        });
+      }
+
+      const current = bindings.get(key)!;
+      if (imp.defaultImport && isValidIdentifier(imp.defaultImport)) {
+        current.defaultNames.add(imp.defaultImport);
+      }
+
+      for (const named of imp.namedImports) {
+        if (isValidIdentifier(named.local) && isValidIdentifier(named.imported)) {
+          current.namedBindings.set(named.local, named.imported);
+        }
+      }
+    }
+  }
+
+  return bindings;
 }
 
 /* ── Build import map for CDN deps ── */
@@ -376,6 +460,7 @@ serve(async (req: Request) => {
 
     // Topologically sort modules so dependencies come before dependents
     const { sorted: depModules, appFile } = topoSort(entry, files);
+    const bindingsByModule = collectModuleBindings(files);
 
     // Transpile and build each module, exposing exports as global variables
     const moduleBlocks: string[] = [];
@@ -389,16 +474,42 @@ serve(async (req: Request) => {
 
       const stripped = stripForInline(result.code);
       const exports = extractExports(file.content);
-      
-      // Collect all names to expose
-      const allNames = [...exports.namedExports];
-      if (exports.defaultExport && !allNames.includes(exports.defaultExport)) {
-        allNames.push(exports.defaultExport);
+      const moduleBindings = bindingsByModule.get(normalizePath(file.path));
+
+      const exposedMap = new Map<string, string>(); // exposedName -> source expression
+
+      for (const named of exports.namedExports) {
+        if (isValidIdentifier(named)) {
+          exposedMap.set(named, `typeof ${named} !== 'undefined' ? ${named} : undefined`);
+        }
       }
 
-      // Wrap in IIFE, extract names to global scope
-      const returnObj = allNames.length > 0 
-        ? `return { ${allNames.join(", ")} };`
+      if (exports.defaultExport && isValidIdentifier(exports.defaultExport)) {
+        const defaultExpr = `typeof ${exports.defaultExport} !== 'undefined' ? ${exports.defaultExport} : undefined`;
+        const defaultTargets = moduleBindings && moduleBindings.defaultNames.size > 0
+          ? Array.from(moduleBindings.defaultNames)
+          : [exports.defaultExport];
+
+        for (const target of defaultTargets) {
+          if (isValidIdentifier(target)) {
+            exposedMap.set(target, defaultExpr);
+          }
+        }
+      }
+
+      if (moduleBindings) {
+        for (const [localName, exportedName] of moduleBindings.namedBindings.entries()) {
+          if (isValidIdentifier(localName) && isValidIdentifier(exportedName)) {
+            exposedMap.set(localName, `typeof ${exportedName} !== 'undefined' ? ${exportedName} : undefined`);
+          }
+        }
+      }
+
+      const exposedEntries = Array.from(exposedMap.entries());
+      const returnObj = exposedEntries.length > 0
+        ? `return { ${exposedEntries
+            .map(([name, expr]) => `${JSON.stringify(name)}: (${expr})`)
+            .join(", ")} };`
         : "return {};";
 
       moduleBlocks.push(`
@@ -412,7 +523,7 @@ var __mod_result = (function() {
     return {};
   }
 })();
-${allNames.map(name => `var ${name} = __mod_result.${name};`).join("\n")}
+${exposedEntries.map(([name]) => `var ${name} = __mod_result[${JSON.stringify(name)}];`).join("\n")}
 `);
     }
 
