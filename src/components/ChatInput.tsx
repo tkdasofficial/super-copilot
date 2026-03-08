@@ -139,7 +139,7 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled }: P
     e.target.value = "";
   };
 
-  const placeholder = toolName ? `Ask ${toolName}...` : "Message Super Copilot...";
+  const placeholder = "Ask Copilot";
 
   return (
     <div className="w-full px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
