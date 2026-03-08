@@ -62,21 +62,15 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
           </div>
         </div>
       ) : (
-        <div className="group relative max-w-full">
-          {/* AI indicator dot */}
-          <div className="flex items-start gap-3">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-foreground/10 to-foreground/5 border border-border flex items-center justify-center shrink-0 mt-0.5">
-              <Sparkles className="w-3.5 h-3.5 text-foreground/60" />
-            </div>
-
-            <div className="flex-1 min-w-0 space-y-2.5">
-              {message.imageUrl && (
-                <img
-                  src={message.imageUrl}
-                  alt="Generated"
-                  className="max-w-sm w-full rounded-xl border border-border shadow-sm"
-                />
-              )}
+        <div className="group relative max-w-[92%]">
+          <div className="space-y-2.5">
+            {message.imageUrl && (
+              <img
+                src={message.imageUrl}
+                alt="Generated"
+                className="max-w-sm w-full rounded-xl border border-border shadow-sm"
+              />
+            )}
 
               {message.content && (
                 <div
