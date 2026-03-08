@@ -148,7 +148,6 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                   </button>
                 </div>
               )}
-            </div>
           </div>
         </div>
       )}
