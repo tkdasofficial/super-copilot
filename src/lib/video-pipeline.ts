@@ -1,10 +1,10 @@
 /**
- * Video pipeline — server-side orchestration + client-side WebM assembly.
+ * Video pipeline — server-side asset generation + client-side FFmpeg MP4 rendering.
  * All AI work (script, images, TTS) runs server-side via SSE streaming.
- * Only final frame rendering uses browser Canvas + MediaRecorder.
+ * Final encoding uses FFmpeg WASM for professional H.264 MP4 output.
  */
 
-import { assembleWebM, type AssemblyProject, type AssemblyScene } from "./webm-assembler";
+import { renderToMP4, type RenderScene, type RenderProject } from "./ffmpeg-renderer";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -52,7 +52,7 @@ function calcProgress(tasks: WorkerTask[]): number {
   return Math.round((tasks.filter((t) => t.status === "done").length / tasks.length) * 100);
 }
 
-// ── Server-Side Pipeline with SSE ──
+// ── Server-Side Pipeline with SSE + Client FFmpeg rendering ──
 
 export async function runVideoPipeline(
   topic: string,
@@ -64,7 +64,7 @@ export async function runVideoPipeline(
     { id: "script", label: "Write Script", group: "script", status: "pending" },
   ];
   let script: VideoScript | undefined;
-  let assemblyScenes: AssemblyScene[] = [];
+  let assemblyScenes: RenderScene[] = [];
 
   const emit = (extra?: Partial<PipelineState>) => {
     onProgress({ tasks: [...tasks], overallProgress: calcProgress(tasks), script, ...extra });
@@ -160,33 +160,38 @@ export async function runVideoPipeline(
       throw new Error("Server did not complete asset generation");
     }
 
-    // ── Client-side WebM assembly ──
-    const assembleTask: WorkerTask = { id: "assemble", label: "Assemble Video", group: "render", status: "working" };
-    const exportTask: WorkerTask = { id: "export", label: "Export WebM", group: "export", status: "pending" };
-    tasks.push(assembleTask, exportTask);
+    // ── Client-side FFmpeg MP4 rendering ──
+    const renderTask: WorkerTask = { id: "ffmpeg-render", label: "FFmpeg Render", group: "render", status: "working" };
+    tasks.push(renderTask);
     emit();
 
-    const assemblyProject: AssemblyProject = {
+    const renderProject: RenderProject = {
       title: script?.title || topic,
       scenes: assemblyScenes,
       aspectRatio,
     };
 
-    const videoBlob = await assembleWebM(assemblyProject, (progress) => {
-      assembleTask.detail = progress.stage;
+    const videoUrl = await renderToMP4(renderProject, (progress) => {
+      // Merge FFmpeg render tasks
+      const renderTasks = progress.tasks.map((t) => ({
+        ...t,
+        group: "render" as const,
+      }));
+      
+      // Replace render-related tasks
+      const nonRenderTasks = tasks.filter((t) => t.group !== "render" || t.id === "ffmpeg-render");
+      renderTask.detail = progress.tasks.find((t) => t.status === "working")?.detail || "Rendering...";
       emit();
+
+      if (progress.videoUrl) {
+        renderTask.status = "done";
+        renderTask.detail = "Complete";
+        emit({ videoUrl: progress.videoUrl });
+      }
     });
 
-    assembleTask.status = "done";
-    assembleTask.detail = "Assembled";
-    exportTask.status = "working";
-    exportTask.detail = "Creating download...";
-    emit();
-
-    const videoUrl = URL.createObjectURL(videoBlob);
-
-    exportTask.status = "done";
-    exportTask.detail = `${(videoBlob.size / 1024 / 1024).toFixed(1)} MB`;
+    renderTask.status = "done";
+    renderTask.detail = "MP4 ready";
     emit({ videoUrl });
 
     return videoUrl;
@@ -201,4 +206,4 @@ export async function runVideoPipeline(
 }
 
 // Re-export types for editor engine compatibility
-export type { AssemblyScene, AssemblyProject };
+export type { RenderScene as AssemblyScene, RenderProject as AssemblyProject };

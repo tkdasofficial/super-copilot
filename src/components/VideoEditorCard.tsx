@@ -11,7 +11,7 @@ import {
   applyOperations, renderProject,
 } from "@/lib/video-editor-engine";
 import { runVideoPipeline, type PipelineState, type WorkerTask, type TaskStatus } from "@/lib/video-pipeline";
-import type { AssemblyScene } from "@/lib/webm-assembler";
+import type { RenderScene } from "@/lib/ffmpeg-renderer";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -304,7 +304,7 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
     if (!videoUrl) return;
     const a = document.createElement("a");
     a.href = videoUrl;
-    a.download = `video_${Date.now()}.webm`;
+    a.download = `video_${Date.now()}.mp4`;
     a.click();
   };
 
@@ -429,7 +429,7 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-foreground text-background text-sm font-medium hover:opacity-90 transition-opacity"
           >
             <Download className="w-4 h-4" />
-            Download WebM
+            Download MP4
           </button>
         </div>
       )}
