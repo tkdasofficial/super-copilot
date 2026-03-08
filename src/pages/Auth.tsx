@@ -188,7 +188,7 @@ const Auth = () => {
               </button>
             )}
             <button
-              onClick={() => { setMode("login"); setOtpCode(""); }}
+              onClick={() => { setMode("login"); setOtpCode(""); navigate("/login"); }}
               className="flex items-center gap-1 text-xs text-foreground font-medium hover:underline"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
