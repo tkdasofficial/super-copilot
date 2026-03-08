@@ -79,6 +79,10 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
 
   const handleSend = () => {
     if (!hasContent || disabled) return;
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    }
     onSend(
       value.trim() || (attachedImage ? "Analyze this image" : ""),
       attachedImage ? { base64: attachedImage.base64, mimeType: attachedImage.mimeType } : undefined,
