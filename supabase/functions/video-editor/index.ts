@@ -93,6 +93,24 @@ const EDITING_TOOLS = [
   {
     type: "function",
     function: {
+      name: "analyze_visuals",
+      description: "Run AI visual consistency and quality analysis on the current video project. Returns scores and auto-fixable issues.",
+      parameters: {
+        type: "object",
+        properties: {
+          analysis_focus: {
+            type: "string",
+            enum: ["full", "consistency", "quality", "pacing"],
+            description: "What aspect to focus on",
+          },
+        },
+        required: ["analysis_focus"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "analyze_video",
       description: "Analyze the current video project and provide feedback or suggestions.",
       parameters: {
