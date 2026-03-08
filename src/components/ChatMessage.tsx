@@ -41,6 +41,13 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
           {message.videos && message.videos.length > 0 && (
             <VideoGrid videos={message.videos} />
           )}
+          {message.videoGeneration && (
+            <VideoGenerationCard
+              topic={message.videoGeneration.topic}
+              duration={message.videoGeneration.duration}
+              aspectRatio={message.videoGeneration.aspectRatio}
+            />
+          )}
         </div>
       )}
     </div>
