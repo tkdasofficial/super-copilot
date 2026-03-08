@@ -106,13 +106,19 @@ const MobileSidebar = ({ open, onClose, onNewChat, onSelectChat, isMainChat, act
                       <button
                         onClick={() => { onSelectChat(chat.id); onClose(); }}
                         className={cn(
-                          "flex-1 text-left px-3 py-2 rounded-lg text-sm transition-colors truncate",
+                          "flex-1 text-left px-3 py-2 rounded-lg text-sm transition-colors truncate flex items-center gap-2",
                           activeChatId === chat.id
                             ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
                             : "text-sidebar-foreground hover:bg-sidebar-accent"
                         )}
                       >
-                        {chat.title}
+                        {activeChatId === chat.id && (
+                          <span className="relative flex h-2 w-2 shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                          </span>
+                        )}
+                        <span className="truncate">{chat.title}</span>
                       </button>
                       <div className="hidden group-hover:flex items-center gap-0.5 pr-1">
                         <button onClick={() => startRename(chat.id, chat.title)} className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-sidebar-accent">
