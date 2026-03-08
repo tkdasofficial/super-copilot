@@ -33,6 +33,17 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   const scrollRef = useRef<HTMLDivElement>(null);
   const { addChat, updateChatMessages } = useChatHistory();
 
+  // Set title from initial messages when loading an existing chat
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0 && !chatTitle) {
+      const firstUser = initialMessages.find((m) => m.role === "user");
+      if (firstUser) {
+        const raw = firstUser.content.length > 100 ? firstUser.content.slice(0, 100) : firstUser.content;
+        setChatTitle(raw.length > 40 ? raw.slice(0, 40) + "..." : raw);
+      }
+    }
+  }, [initialMessages]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
