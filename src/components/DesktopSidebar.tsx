@@ -20,7 +20,7 @@ const DesktopSidebar = ({ onNewChat, onSelectChat, isMainChat, chatHistory }: Pr
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [studiosOpen, setStudiosOpen] = useState(false);
+  
 
   const displayHistory = searchQuery ? searchHistory(searchQuery) : chatHistory;
 
