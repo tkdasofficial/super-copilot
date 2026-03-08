@@ -182,7 +182,7 @@ serve(async (req) => {
           // ── Full generation pipeline ──
           await sendEvent("task_update", { id: "script", status: "working", label: "Write Script" });
 
-          const script = await generateScript(ratio, style);
+          const script = await generateScript();
 
           await sendEvent("task_update", { id: "script", status: "done", label: "Write Script", detail: `${script.scenes.length} scenes` });
           await sendEvent("script_ready", { script });
@@ -202,7 +202,7 @@ serve(async (req) => {
             await sendEvent("task_update", { id: `img-${i}`, status: "working" });
             let imageUrl: string;
             try {
-              imageUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, rompt, aspec            await sendEvent("task_update", { id: `img-${i}`, status: "done", detail: "Ready" });
+              imageUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, rompt, aspec            ent("task_update", { id: `img-${i}`, status: "done", detail: "Ready" });
             } catch (e: any) {
               await sendEvent("task_update", { id: `img-${i}`, status: "error", detail: e.message });
               throw e;
@@ -297,7 +297,7 @@ serve(async (req) => {
 
                   try {
                     const newPrompt = issue.fixParams?.newPrompt || scenes[idx].imagePrompt;
-                    const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, newPrompt + nsistent lighting, color palette, and professional quality.", aspect_ratio);
+                    const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, newPrompt + nsistent lighting, colord professional quality.", aspect_ratio);
                     scenes[idx].imageUrl = newUrl;
                     await sendEvent("task_update", { id: `fix-${idx}`, status: "done", detail: "Regenerated" });
                   } catch (e: any) {
@@ -334,7 +334,7 @@ serve(async (req) => {
               const idx = op.sceneIndex ?? 0;
               await sendEvent("task_update", { id: `regen-img-${i}`, status: "working", label: `Regenerate Scene ${idx + 1} Image` });
               try {
-                const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, op.params.newPrompt, projectState.aspectRatio || "9:16");
+                const newUrl = await generateImage(FREEPIK_KEY, GEMINI_KEY, op.params.newPrompt, propectRatio || "9:16");
                 op._result = { imageUrl: newUrl };
                 await sendEvent("task_update", { id: `regen-img-${i}`, status: "done" });
               } catch (e: any) {
