@@ -161,7 +161,7 @@ const EmptyState = ({ tool, onPromptClick }: Props) => {
     <div className="flex flex-col items-center justify-center h-full px-0 animate-fade-up overflow-hidden">
       {/* Hero */}
       <div className="flex flex-col items-center mb-10 px-5">
-        <div className="w-5 h-5 rounded-full overflow-hidden mb-4 animate-spin-slow">
+        <div className="w-[120px] h-[120px] rounded-full overflow-hidden mb-4 animate-spin-slow">
           <img src={logo} alt="Super Copilot" className="w-full h-full object-cover" />
         </div>
         <h2 className="font-display text-lg sm:text-xl font-semibold text-foreground text-center">
