@@ -72,8 +72,13 @@ serve(async (req) => {
       throw new Error("No scenes provided for analysis");
     }
 
-    const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY not configured");
+    // Gather all Gemini keys for fallback
+    const geminiKeys: string[] = [];
+    for (const suffix of ["", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"]) {
+      const k = Deno.env.get(`GEMINI_API_KEY${suffix}`);
+      if (k) geminiKeys.push(k);
+    }
+    if (geminiKeys.length === 0) throw new Error("No Gemini API keys configured");
 
     const isLongForm = (contentType === "long") || scenes.length > 8;
 
