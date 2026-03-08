@@ -4,6 +4,7 @@ import { Copy, Check, Play, ExternalLink, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import VideoGenerationCard from "./VideoGenerationCard";
+import VideoEditorCard from "./VideoEditorCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
@@ -46,6 +47,11 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               topic={message.videoGeneration.topic}
               duration={message.videoGeneration.duration}
               aspectRatio={message.videoGeneration.aspectRatio}
+            />
+          )}
+          {message.videoEdit && (
+            <VideoEditorCard
+              userMessage={message.videoEdit.userMessage}
             />
           )}
         </div>

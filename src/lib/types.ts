@@ -31,6 +31,11 @@ export type VideoGeneration = {
   aspectRatio: string;
 };
 
+export type VideoEditRequest = {
+  userMessage: string;
+  isNewProject: boolean;
+};
+
 export type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -40,4 +45,5 @@ export type ChatMessage = {
   imageUrl?: string;
   videos?: StockVideo[];
   videoGeneration?: VideoGeneration;
+  videoEdit?: VideoEditRequest;
 };

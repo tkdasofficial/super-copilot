@@ -153,36 +153,22 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       return;
     }
 
-    // Short-form video creation detection
+    // AI Video editing / generation detection
+    const isVideoEdit = /\b(edit|cut|trim|crop|add\s*(text|music|filter|transition|overlay|effect)|change\s*(speed|timing|pacing)|slow\s*mo|speed\s*up|reorder|split|delete\s*scene|regenerate|re-?render|improve\s*video|enhance\s*video|make\s*(it|the\s*video)\s*(better|shorter|longer|faster|slower))\b/i.test(content);
     const isVideoCreation = /\b(create|make|generate|produce)\b.*\b(video|short|reel|tiktok|clip)\b.*\b(about|on|for|of)\b/i.test(content)
       || /\b(short[\s-]*form|short)\b.*\b(video|content)\b/i.test(content);
 
-    if (isVideoCreation) {
-      // Parse duration from content (default 45s)
-      const durationMatch = content.match(/(\d{1,3})\s*(second|sec|s\b)/i);
-      const videoDuration = durationMatch ? Math.min(60, Math.max(10, parseInt(durationMatch[1]))) : 45;
-
-      // Parse aspect ratio
-      const detectedVideoRatio = detectAspectRatio(content);
-
-      // Extract topic: remove common prefixes
-      const videoTopic = content
-        .replace(/\b(create|make|generate|produce|please|can you|a|an)\b/gi, "")
-        .replace(/\b(short[\s-]*form|short|video|reel|tiktok|clip|content|about|on|for|of)\b/gi, "")
-        .replace(/\b\d{1,3}\s*(second|sec|s)\b/gi, "")
-        .replace(/\b(9:16|16:9|1:1|4:3|3:4|vertical|horizontal|portrait|landscape|square)\b/gi, "")
-        .replace(/\s+/g, " ")
-        .trim() || content;
-
+    if (isVideoCreation || isVideoEdit) {
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `Starting video creation: "${videoTopic}" (${videoDuration}s, ${detectedVideoRatio})`,
+        content: isVideoCreation
+          ? `Processing your video request...`
+          : `Applying your edits...`,
         timestamp: new Date(),
-        videoGeneration: {
-          topic: videoTopic,
-          duration: videoDuration,
-          aspectRatio: detectedVideoRatio,
+        videoEdit: {
+          userMessage: content,
+          isNewProject: isVideoCreation,
         },
       }]);
 
