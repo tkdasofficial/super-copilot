@@ -29,6 +29,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   const initialMsgCount = useRef((initialMessages || []).length);
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase>("thinking");
   const [chatId, setChatId] = useState<string | null>(externalChatId || null);
+  const [chatTitle, setChatTitle] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { addChat, updateChatMessages } = useChatHistory();
 
