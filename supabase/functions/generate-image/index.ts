@@ -103,7 +103,10 @@ serve(async (req) => {
 
     if (!taskId) {
       // Some models return images directly
-      const images = createData.data?.images || createData.data || [];
+      const rawImages = createData.data?.images?.generated || createData.data?.images || createData.data || [];
+      const images = (Array.isArray(rawImages) ? rawImages : [rawImages]).map((img: any) =>
+        typeof img === "string" ? { url: img } : img
+      );
       return new Response(
         JSON.stringify({ images }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -112,7 +115,10 @@ serve(async (req) => {
 
     // Poll for completion
     const result = await pollTask(FREEPIK_API_KEY, model, taskId);
-    const images = result.data?.images || result.data || [];
+    const rawImages = result.data?.images?.generated || result.data?.images || result.data || [];
+    const images = (Array.isArray(rawImages) ? rawImages : [rawImages]).map((img: any) =>
+      typeof img === "string" ? { url: img } : img
+    );
 
     return new Response(
       JSON.stringify({ images }),
