@@ -1,5 +1,5 @@
-import type { AITool, SamplePrompt } from "@/lib/mock-data";
-import { GENERAL_CHAT_PROMPTS } from "@/lib/mock-data";
+import { Zap, PenTool, Lightbulb, BarChart3 } from "lucide-react";
+import type { AITool, SamplePrompt } from "@/lib/types";
 import logo from "@/assets/logo.svg";
 
 type Props = {
