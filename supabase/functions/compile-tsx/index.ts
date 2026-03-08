@@ -39,53 +39,72 @@ function transpileFile(file: ProjectFile): { code: string; error?: string } {
   }
 }
 
-/* ── Extract all exported names from ORIGINAL source ── */
+/* ── Extract exported names from ORIGINAL source ── */
 function extractExports(code: string): { defaultExport: string | null; namedExports: string[] } {
   let defaultExport: string | null = null;
   const namedExports: string[] = [];
 
   // export default function Foo / export default class Foo
-  let m = code.match(/export\s+default\s+(?:function|class)\s+(\w+)/);
+  let m = code.match(/export\s+default\s+(?:function|class)\s+([A-Za-z_$][\w$]*)/);
   if (m) defaultExport = m[1];
 
-  // export default Foo (standalone)
+  // export default Foo;
   if (!defaultExport) {
-    m = code.match(/export\s+default\s+(\w+)\s*;/);
+    m = code.match(/export\s+default\s+([A-Za-z_$][\w$]*)\s*;/);
     if (m) defaultExport = m[1];
   }
 
-  // If no named default, look for the main component/function name
-  if (!defaultExport) {
-    // Check for `const Foo = ...` followed by `export default Foo` or just `export default`
-    const funcMatch = code.match(/(?:const|function|class)\s+([A-Z]\w*)/);
-    if (funcMatch && code.includes("export default")) {
-      defaultExport = funcMatch[1];
-    }
+  // export default <anonymous-expression>
+  if (!defaultExport && /export\s+default\s+/.test(code)) {
+    defaultExport = "__default_export";
   }
 
   // Named exports: export const/let/var/function/class Name
-  const namedPattern = /export\s+(?:const|let|var|function|class)\s+(\w+)/g;
-  let nm;
+  const namedPattern = /export\s+(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g;
+  let nm: RegExpExecArray | null;
   while ((nm = namedPattern.exec(code)) !== null) {
     namedExports.push(nm[1]);
   }
 
-  return { defaultExport, namedExports };
+  // Named export list: export { Foo, Bar as Baz }
+  const exportListPattern = /export\s*\{([^}]*)\}\s*;?/g;
+  let em: RegExpExecArray | null;
+  while ((em = exportListPattern.exec(code)) !== null) {
+    const raw = em[1].split(",").map((s) => s.trim()).filter(Boolean);
+    for (const item of raw) {
+      const imported = item.split(/\s+as\s+/)[0]?.trim();
+      if (imported) namedExports.push(imported);
+    }
+  }
+
+  return { defaultExport, namedExports: Array.from(new Set(namedExports)) };
 }
 
-/* ── Strip imports and exports for inline execution ── */
+/* ── Strip imports/exports for inline execution ── */
 function stripForInline(code: string): string {
   let result = code;
-  // Remove all import statements (use non-multiline to catch mid-line imports from sucrase)
-  result = result.replace(/import\s+[\w{},*\s]+\s+from\s+['"][^'"]*['"];?\s*/g, "");
-  result = result.replace(/import\s+['"][^'"]*['"];?\s*/g, "");
-  result = result.replace(/import\s+type\s+[^;]*;?\s*/g, "");
-  // Remove export default (keep declaration)
-  result = result.replace(/export\s+default\s+/g, "");
-  // Remove named export keyword (keep declaration)  
-  result = result.replace(/export\s+(?=(?:const|let|var|function|class)\s)/g, "");
-  // Remove standalone export { ... }
-  result = result.replace(/^export\s*\{[^}]*\};?\s*$/gm, "");
+
+  // Remove imports (type + runtime)
+  result = result.replace(/^\s*import\s+type[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, "");
+  result = result.replace(/^\s*import[\s\S]*?from\s+['"][^'"]+['"];?\s*$/gm, "");
+  result = result.replace(/^\s*import\s+['"][^'"]+['"];?\s*$/gm, "");
+
+  // Keep named default declarations intact
+  result = result.replace(/export\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/g, "function $1(");
+  result = result.replace(/export\s+default\s+class\s+([A-Za-z_$][\w$]*)\b/g, "class $1");
+
+  // Convert remaining default exports (anonymous function/class/expression)
+  if (/export\s+default\s+/.test(result)) {
+    result = result.replace(/export\s+default\s+/, "const __default_export = ");
+  }
+
+  // Remove named export keyword (keep declaration)
+  result = result.replace(/^\s*export\s+(?=(?:const|let|var|function|class)\s)/gm, "");
+
+  // Remove export lists / star exports
+  result = result.replace(/^\s*export\s*\{[^}]*\};?\s*$/gm, "");
+  result = result.replace(/^\s*export\s+\*\s+from\s+['"][^'"]+['"];?\s*$/gm, "");
+
   return result.trim();
 }
 
