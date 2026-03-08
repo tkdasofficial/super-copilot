@@ -111,7 +111,7 @@ const DesktopSidebar = ({ onNewChat, onSelectChat, isMainChat, chatHistory }: Pr
                   </div>
                 ) : (
                   <div className="flex items-center">
-                    <button className="flex-1 text-left px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors truncate">
+                    <button onClick={() => onSelectChat(chat.id)} className="flex-1 text-left px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors truncate">
                       {chat.title}
                     </button>
                     <div className="hidden group-hover:flex items-center gap-0.5 pr-1">
