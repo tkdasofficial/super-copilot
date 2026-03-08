@@ -47,6 +47,10 @@ const ProfileMenu = () => {
           <Settings className="w-4 h-4" />
           <span>Settings</span>
         </DropdownMenuItem>
+        <DropdownMenuItem className="gap-2.5 cursor-pointer" onClick={() => navigate("/inbox")}>
+          <Inbox className="w-4 h-4" />
+          <span>Inbox</span>
+        </DropdownMenuItem>
         <DropdownMenuItem className="gap-2.5 cursor-pointer text-primary" onClick={() => navigate("/upgrade")}>
           <Crown className="w-4 h-4" />
           <span>Upgrade Plan</span>
