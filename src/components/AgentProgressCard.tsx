@@ -3,7 +3,7 @@ import { CheckCircle2, Circle, Loader2, AlertCircle, ChevronDown, ChevronUp, Ima
 import ReactMarkdown from "react-markdown";
 import type { AgentPlan, AgentStep, StepResult, StepStatus } from "@/lib/agent-executor";
 import { executeAgentPlan } from "@/lib/agent-executor";
-import { FileCreatorCard } from "./FileCreatorCard";
+import FileCreatorCard from "./FileCreatorCard";
 import WebAppPreviewCard from "./WebAppPreviewCard";
 
 type Props = {
