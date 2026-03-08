@@ -33,29 +33,98 @@ If the website requires authentication or login to view content, clearly state:
 
 If information is limited, explain what data is publicly available and what requires authentication. Always be honest about what you can and cannot access. Use grounded, factual data from Google Search — never fabricate details.`;
 
-// Detect URLs in message content
-function containsUrl(text: string): boolean {
-  return /https?:\/\/[^\s<>"{}|\\^`\[\]]+/i.test(text) ||
-    /(?:^|\s)(www\.[^\s<>"{}|\\^`\[\]]+)/i.test(text);
+// Extract URLs from text
+function extractUrls(text: string): string[] {
+  const matches = text.match(/https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi) || [];
+  return matches;
 }
 
 // Detect if user is asking to analyze/check a website
 function isWebAnalysisRequest(text: string): boolean {
+  const urls = extractUrls(text);
+  if (urls.length === 0) return false;
+
   const lower = text.toLowerCase();
-  const hasUrl = containsUrl(text);
-  if (!hasUrl) return false;
-
-  // Check for analysis intent keywords
   const hasAnalysisIntent = /\b(analy[sz]e|check|review|inspect|scan|audit|examine|tell\s*me\s*about|what\s*is|details?\s*(about|of|on)|info(rmation)?\s*(about|of|on)|describe|explain|overview|look\s*at|visit|open|show\s*me|go\s*to|about\s*this|what.*website|website.*what)\b/i.test(lower);
-
-  // If there's a URL and analysis intent, or just a URL with minimal other text
   if (hasAnalysisIntent) return true;
 
-  // If the message is mostly just a URL (short message with URL)
-  const urlRemoved = text.replace(/https?:\/\/[^\s]+/g, "").replace(/www\.[^\s]+/g, "").trim();
-  if (urlRemoved.length < 30 && hasUrl) return true;
+  const urlRemoved = text.replace(/https?:\/\/[^\s]+/g, "").trim();
+  if (urlRemoved.length < 30) return true;
 
   return false;
+}
+
+/** Fetch a webpage and extract text content */
+async function fetchWebpageContent(url: string): Promise<{ html: string; text: string; title: string; meta: Record<string, string>; error?: string }> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    const resp = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; SuperCopilotBot/1.0)",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      },
+      signal: controller.signal,
+      redirect: "follow",
+    });
+    clearTimeout(timeout);
+
+    if (!resp.ok) {
+      if (resp.status === 401 || resp.status === 403) {
+        return { html: "", text: "", title: "", meta: {}, error: `AUTH_REQUIRED (${resp.status})` };
+      }
+      return { html: "", text: "", title: "", meta: {}, error: `HTTP ${resp.status}` };
+    }
+
+    const contentType = resp.headers.get("content-type") || "";
+    if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
+      return { html: "", text: "", title: "", meta: {}, error: `Non-HTML content: ${contentType}` };
+    }
+
+    const html = await resp.text();
+
+    // Extract title
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    const title = titleMatch ? titleMatch[1].replace(/\s+/g, " ").trim() : "";
+
+    // Extract meta tags
+    const meta: Record<string, string> = {};
+    const metaRegex = /<meta\s+(?:[^>]*?(?:name|property)\s*=\s*["']([^"']+)["'][^>]*?content\s*=\s*["']([^"']*?)["']|[^>]*?content\s*=\s*["']([^"']*?)["'][^>]*?(?:name|property)\s*=\s*["']([^"']+)["'])[^>]*>/gi;
+    let metaMatch;
+    while ((metaMatch = metaRegex.exec(html)) !== null) {
+      const name = (metaMatch[1] || metaMatch[4] || "").toLowerCase();
+      const content = metaMatch[2] || metaMatch[3] || "";
+      if (name && content) meta[name] = content;
+    }
+
+    // Extract visible text: remove scripts, styles, then tags
+    let text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<nav[\s\S]*?<\/nav>/gi, "")
+      .replace(/<footer[\s\S]*?<\/footer>/gi, " [FOOTER] ")
+      .replace(/<header[\s\S]*?<\/header>/gi, " [HEADER] ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#\d+;/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Truncate to ~8000 chars to fit in context
+    if (text.length > 8000) text = text.slice(0, 8000) + "... [TRUNCATED]";
+
+    return { html: html.slice(0, 2000), text, title, meta };
+  } catch (e: any) {
+    if (e.name === "AbortError") {
+      return { html: "", text: "", title: "", meta: {}, error: "TIMEOUT" };
+    }
+    return { html: "", text: "", title: "", meta: {}, error: e.message };
+  }
 }
 
 serve(async (req) => {
