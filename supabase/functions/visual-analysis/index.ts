@@ -179,32 +179,39 @@ Be precise, actionable, and professional. Score harshly — 70+ should mean genu
       }
     }
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: "user", parts: userParts }],
-          generationConfig: {
-            temperature: 0.3,
-            responseMimeType: "application/json",
-          },
-        }),
-      }
-    );
+    const geminiBody = JSON.stringify({
+      system_instruction: { parts: [{ text: systemPrompt }] },
+      contents: [{ role: "user", parts: userParts }],
+      generationConfig: {
+        temperature: 0.3,
+        responseMimeType: "application/json",
+      },
+    });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Gemini vision error:", res.status, errText);
-      if (res.status === 429) {
+    let res: Response | null = null;
+    let lastError = "";
+
+    for (const key of geminiKeys) {
+      try {
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+          { method: "POST", headers: { "Content-Type": "application/json" }, body: geminiBody }
+        );
+        if (r.ok) { res = r; break; }
+        lastError = await r.text();
+        console.warn(`Gemini key failed (${r.status}):`, lastError.slice(0, 200));
+        if (r.status !== 429 && r.status !== 503 && r.status !== 500) break;
+      } catch (e) { lastError = String(e); }
+    }
+
+    if (!res?.ok) {
+      if (lastError.includes("429")) {
         return new Response(
           JSON.stringify({ error: "Rate limit exceeded, please try again later." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      throw new Error(`Gemini API error [${res.status}]`);
+      throw new Error(`All Gemini keys failed: ${lastError.slice(0, 300)}`);
     }
 
     const data = await res.json();

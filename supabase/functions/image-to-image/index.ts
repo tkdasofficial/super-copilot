@@ -19,24 +19,31 @@ const ASPECT_RATIOS: Record<string, string> = {
   "4:5": "social_post_4_5",
 };
 
+// Gather all Gemini keys
+function getGeminiKeys(): string[] {
+  const keys: string[] = [];
+  for (const suffix of ["", "_2", "_3", "_4", "_5", "_6", "_7", "_8", "_9"]) {
+    const k = Deno.env.get(`GEMINI_API_KEY${suffix}`);
+    if (k) keys.push(k);
+  }
+  return keys;
+}
+
 async function analyzeImageWithGemini(
-  apiKey: string,
   imageBase64: string,
   mimeType: string,
   userInstruction: string
 ): Promise<string> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
+  const geminiKeys = getGeminiKeys();
+  if (geminiKeys.length === 0) throw new Error("No Gemini API keys configured");
+
+  const body = JSON.stringify({
+    contents: [
+      {
+        role: "user",
+        parts: [
           {
-            role: "user",
-            parts: [
-              {
-                text: `You are an expert image analyst and prompt engineer. Analyze this image in extreme detail and create a highly optimized, detailed prompt for an AI image generator to create a similar or enhanced version.
+            text: `You are an expert image analyst and prompt engineer. Analyze this image in extreme detail and create a highly optimized, detailed prompt for an AI image generator to create a similar or enhanced version.
 
 User's instruction: "${userInstruction}"
 
@@ -52,24 +59,33 @@ Analyze the image for:
 - Camera angle and perspective
 
 Based on your analysis and the user's instruction, create a single, comprehensive image generation prompt. The prompt should be detailed enough to reproduce the essence of the image while incorporating the user's modifications. Output ONLY the prompt text, nothing else.`,
-              },
-              {
-                inlineData: { mimeType, data: imageBase64 },
-              },
-            ],
+          },
+          {
+            inlineData: { mimeType, data: imageBase64 },
           },
         ],
-      }),
+      },
+    ],
+  });
+
+  for (const key of geminiKeys) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+        { method: "POST", headers: { "Content-Type": "application/json" }, body }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      }
+      const errText = await response.text();
+      console.warn(`Gemini key failed (${response.status}):`, errText.slice(0, 200));
+      if (response.status !== 429 && response.status !== 503 && response.status !== 500) break;
+    } catch (e) {
+      console.warn("Gemini fetch error:", e);
     }
-  );
-
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini analysis error [${response.status}]: ${errText}`);
   }
-
-  const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  throw new Error("All Gemini keys failed for image analysis");
 }
 
 async function generateWithFreepik(
