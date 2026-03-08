@@ -11,7 +11,7 @@ const EDITING_TOOLS = [
     type: "function",
     function: {
       name: "generate_full_video",
-      description: "Generate a complete new video from a topic. Use when user wants to create a video from scratch.",
+      description: "Generate a complete new SHORT-FORM video (under 60 seconds) from a topic using AI-generated images. Use for short content like TikTok, Reels, Shorts.",
       parameters: {
         type: "object",
         properties: {
@@ -19,6 +19,23 @@ const EDITING_TOOLS = [
           duration: { type: "number", description: "Video duration in seconds (10-60)" },
           aspect_ratio: { type: "string", enum: ["9:16", "16:9", "1:1", "4:3", "4:5"], description: "Video aspect ratio" },
           style: { type: "string", description: "Visual style (e.g. cinematic, minimal, vibrant, dark, retro)" },
+        },
+        required: ["topic", "duration", "aspect_ratio"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_long_form_video",
+      description: "Generate a LONG-FORM video (60+ seconds) using professional stock footage from Pexels. Use for YouTube, educational content, documentaries, explainers, essays. Stock footage is automatically matched to narration.",
+      parameters: {
+        type: "object",
+        properties: {
+          topic: { type: "string", description: "The video topic/subject" },
+          duration: { type: "number", description: "Video duration in seconds (60-600)" },
+          aspect_ratio: { type: "string", enum: ["16:9", "9:16", "1:1", "4:3"], description: "Video aspect ratio (16:9 recommended for long-form)" },
+          style: { type: "string", description: "Visual style/tone (e.g. documentary, educational, cinematic, corporate)" },
         },
         required: ["topic", "duration", "aspect_ratio"],
       },
