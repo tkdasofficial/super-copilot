@@ -1,4 +1,5 @@
 import { type LucideIcon } from "lucide-react";
+import type { AgentPlan } from "./agent-executor";
 
 export type SamplePrompt = { icon: LucideIcon; label: string; prompt: string };
 
@@ -98,4 +99,5 @@ export type ChatMessage = {
     mimeType: string;
     format: string;
   };
+  agentPlan?: AgentPlan;
 };
