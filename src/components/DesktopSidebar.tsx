@@ -71,21 +71,6 @@ const DesktopSidebar = ({ onNewChat, onSelectChat, isMainChat, activeChatId, cha
         )}
       </div>
 
-      <div className="px-3 pt-2 space-y-0.5">
-        <button
-          onClick={onNewChat}
-          className={cn(
-            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors",
-            isMainChat
-              ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-              : "text-sidebar-foreground hover:bg-sidebar-accent"
-          )}
-        >
-          <MessageSquare className="w-4 h-4" />
-          <span>Chat</span>
-        </button>
-
-      </div>
 
       {displayHistory.length > 0 && (
         <div className="px-3 pt-4 flex-1 overflow-y-auto">
