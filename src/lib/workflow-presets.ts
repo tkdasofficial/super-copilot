@@ -152,20 +152,6 @@ export const STUDIO_CATEGORIES: StudioCategory[] = [
         icon: BookOpen,
         prompt: "Summarize the following content in multiple formats: [content]. Create a 1-paragraph executive summary, a bullet-point key takeaways list, a detailed 1-page summary, and an actionable insights list. Then export as a markdown file.",
       },
-      {
-        id: "fact-checker",
-        name: "AI Fact Checker",
-        description: "Verify claims and statements",
-        icon: ShieldCheck,
-        prompt: "Fact-check the following claims: [claims]. For each claim, provide: verdict (true/false/partially true), evidence, sources, and context. Then create a summary report with confidence scores. Then export as a PDF.",
-      },
-      {
-        id: "citation-generator",
-        name: "Citation Generator",
-        description: "Generate proper citations",
-        icon: Quote,
-        prompt: "Generate citations for the following sources about [topic]: [sources]. Provide citations in APA, MLA, Chicago, and Harvard formats. Then create a formatted bibliography. Then export as a text file.",
-      },
     ],
   },
   {
