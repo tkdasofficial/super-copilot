@@ -161,11 +161,10 @@ serve(async (req) => {
   try {
     const { action, topic, duration = 45, aspect_ratio = "9:16", style = "cinematic", editOps, projectState } = await req.json();
 
-    const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
     const TTS_KEY = Deno.env.get("GOOGLE_TTS_API_KEY");
     const FREEPIK_KEY = Deno.env.get("FREEPIK_API_KEY");
 
-    if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY not configured");
+    if (getGeminiKeys().length === 0) throw new Error("No Gemini API keys configured");
     if (!FREEPIK_KEY) throw new Error("FREEPIK_API_KEY not configured");
 
     // ── STREAM progress via SSE ──
