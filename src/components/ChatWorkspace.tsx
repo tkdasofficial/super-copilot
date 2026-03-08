@@ -649,7 +649,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     clearTimeout(phaseTimer);
     setIsTyping(false);
-  }, [tool, chatId, addChat, messages, updateChatMessages]);
+  }, [tool, chatId, addChat, messages, updateChatMessages, dispatchBgTask]);
 
   const handleZipUpload = useCallback(async (file: File) => {
     const userMsg: ChatMessageType = {
