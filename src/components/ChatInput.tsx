@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
 import { ArrowUp, Paperclip, Mic, MicOff, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import TaskModeSelector, { type TaskMode } from "./TaskModeSelector";
@@ -11,11 +11,11 @@ type Props = {
 
 const ChatInput = ({ toolName, onSend, disabled }: Props) => {
   const [value, setValue] = useState("");
-  const [isExpanded, setIsExpanded] = useState(false);
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const [taskMode, setTaskMode] = useState<TaskMode>("general");
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const finalTranscriptRef = useRef("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -29,28 +29,27 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
     recognition.interimResults = true;
     recognition.lang = "en-US";
 
-    let finalTranscript = "";
-
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
-          finalTranscript += event.results[i][0].transcript + " ";
+          finalTranscriptRef.current += event.results[i][0].transcript + " ";
         } else {
           interim += event.results[i][0].transcript;
         }
       }
-      setValue((finalTranscript + interim).trimStart());
-      if (textareaRef.current) {
-        textareaRef.current.style.height = "auto";
-        const nextHeight = Math.min(textareaRef.current.scrollHeight, 150);
-        textareaRef.current.style.height = `${nextHeight}px`;
-        setIsExpanded(nextHeight > 52);
-      }
+      const newValue = (finalTranscriptRef.current + interim).trimStart();
+      setValue(newValue);
+      autoResize();
     };
 
-    recognition.onerror = () => setIsListening(false);
-    recognition.onend = () => setIsListening(false);
+    recognition.onerror = (e: any) => {
+      console.warn("Speech recognition error:", e.error);
+      setIsListening(false);
+    };
+    recognition.onend = () => {
+      setIsListening(false);
+    };
 
     recognitionRef.current = recognition;
 
@@ -59,28 +58,31 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
     };
   }, []);
 
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, []);
+
   const toggleListening = () => {
     if (!recognitionRef.current) return;
     if (isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
     } else {
-      recognitionRef.current.start();
-      setIsListening(true);
+      finalTranscriptRef.current = value;
+      try {
+        recognitionRef.current.start();
+        setIsListening(true);
+      } catch (e) {
+        console.warn("Speech recognition start failed:", e);
+      }
     }
   };
 
   const hasText = value.trim().length > 0;
   const hasContent = hasText || attachedImage;
-
-  const updateTextareaSize = () => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    const nextHeight = Math.min(el.scrollHeight, 150);
-    el.style.height = `${nextHeight}px`;
-    setIsExpanded(nextHeight > 52);
-  };
 
   const handleSend = () => {
     if (!hasContent || disabled) return;
@@ -94,8 +96,8 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
       taskMode
     );
     setValue("");
+    finalTranscriptRef.current = "";
     setAttachedImage(null);
-    setIsExpanded(false);
     if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
@@ -115,11 +117,7 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
     reader.onload = () => {
       const result = reader.result as string;
       const base64 = result.split(",")[1];
-      setAttachedImage({
-        base64,
-        mimeType: file.type,
-        preview: result,
-      });
+      setAttachedImage({ base64, mimeType: file.type, preview: result });
     };
     reader.readAsDataURL(file);
     e.target.value = "";
@@ -130,12 +128,7 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
   return (
     <div className="w-full px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
       <div className="max-w-2xl mx-auto">
-        <div
-          className={cn(
-            "border border-border bg-card transition-all duration-300 focus-within:border-foreground/20 overflow-hidden",
-            isExpanded || attachedImage ? "rounded-2xl" : "rounded-[24px]",
-          )}
-        >
+        <div className="border border-border bg-card rounded-[24px] transition-colors duration-200 focus-within:border-foreground/20 overflow-hidden">
           {/* Attached image preview */}
           {attachedImage && (
             <div className="px-3 pt-3">
@@ -155,19 +148,18 @@ const ChatInput = ({ toolName, onSend, disabled }: Props) => {
             </div>
           )}
 
-          {/* Textarea */}
+          {/* Textarea — grows vertically, shape stays the same */}
           <textarea
             ref={textareaRef}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => { setValue(e.target.value); autoResize(); }}
             onKeyDown={handleKeyDown}
-            onInput={updateTextareaSize}
             placeholder={placeholder}
             rows={1}
-            className="w-full bg-transparent text-foreground text-[15px] placeholder:text-muted-foreground resize-none outline-none min-h-[44px] max-h-[150px] py-3 px-4"
+            className="w-full bg-transparent text-foreground text-[15px] placeholder:text-muted-foreground resize-none outline-none min-h-[44px] max-h-[200px] py-3 px-4"
           />
 
-          {/* Action row inside prompt box */}
+          {/* Action row */}
           <div className="flex items-center justify-between px-2 pb-2">
             <div className="flex items-center gap-1">
               <input
