@@ -13,23 +13,22 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
   const isUser = message.role === "user";
 
   return (
-    <div className={cn("px-4 py-3 max-w-2xl mx-auto animate-fade-up")}>
-      <p className="text-xs font-medium text-muted-foreground mb-1.5">
-        {isUser ? "You" : "Super Copilot"}
-      </p>
+    <div className={cn("px-4 py-2 max-w-2xl mx-auto", isNew && "animate-fade-up")}>
       {isUser ? (
-        <div className="rounded-xl bg-primary/5 border border-border px-3.5 py-2.5">
-          {message.imageUrl && (
-            <img
-              src={message.imageUrl}
-              alt="Attached"
-              className="w-32 h-32 rounded-lg object-cover mb-2 border border-border"
-            />
-          )}
-          <p className="text-[15px] text-foreground leading-relaxed">{message.content}</p>
+        <div className="flex justify-end">
+          <div className="max-w-[85%] rounded-2xl rounded-br-md bg-foreground text-background px-4 py-2.5">
+            {message.imageUrl && (
+              <img
+                src={message.imageUrl}
+                alt="Attached"
+                className="w-32 h-32 rounded-lg object-cover mb-2 border border-background/10"
+              />
+            )}
+            <p className="text-[15px] leading-relaxed">{message.content}</p>
+          </div>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="max-w-[92%] space-y-2.5">
           {message.imageUrl && (
             <img
               src={message.imageUrl}
@@ -37,9 +36,11 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               className="max-w-sm w-full rounded-xl border border-border"
             />
           )}
-          <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground [&_p]:leading-relaxed [&_p]:mb-2 [&_li]:leading-relaxed [&_h1]:font-display [&_h2]:font-display [&_h3]:font-display [&_strong]:text-foreground [&_a]:text-primary">
-            <ReactMarkdown>{message.content}</ReactMarkdown>
-          </div>
+          {message.content && (
+            <div className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground [&_p]:leading-relaxed [&_p]:mb-2 [&_li]:leading-relaxed [&_h1]:font-display [&_h2]:font-display [&_h3]:font-display [&_strong]:text-foreground [&_a]:text-primary [&_code]:bg-accent [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_code]:text-sm [&_pre]:bg-accent [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-border [&_pre]:p-4 [&_blockquote]:border-l-2 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_table]:border-collapse [&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:bg-accent [&_th]:text-sm [&_th]:font-medium [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm [&_hr]:border-border [&_ul]:space-y-1 [&_ol]:space-y-1">
+              <ReactMarkdown>{message.content}</ReactMarkdown>
+            </div>
+          )}
           {message.videos && message.videos.length > 0 && (
             <VideoGrid videos={message.videos} />
           )}
