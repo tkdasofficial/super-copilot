@@ -182,7 +182,7 @@ serve(async (req) => {
           // ── Full generation pipeline ──
           await sendEvent("task_update", { id: "script", status: "working", label: "Write Script" });
 
-          const script = await generateScript(GEMINI_KEY, topic, duration, aspect_ratio, style);
+          const script = await generateScript(topic, duration, aspect_ratio, style);
 
           await sendEvent("task_update", { id: "script", status: "done", label: "Write Script", detail: `${script.scenes.length} scenes` });
           await sendEvent("script_ready", { script });
