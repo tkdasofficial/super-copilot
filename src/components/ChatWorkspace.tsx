@@ -220,6 +220,33 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       return;
     }
 
+    // TTS / Voiceover detection
+    const isTTS = /\b(voice\s*over|voiceover|tts|text[\s-]*to[\s-]*speech|narrat|read\s*aloud|speak\s*this|audio\s*of|convert\s*to\s*(speech|audio|voice)|generate\s*(voice|audio|speech|narration))\b/i.test(content);
+    if (isTTS) {
+      // Extract the script — everything after intent words, or use full content
+      let ttsScript = content
+        .replace(/\b(create|make|generate|do|please|can you|could you)\b/gi, "")
+        .replace(/\b(voice\s*over|voiceover|tts|text[\s-]*to[\s-]*speech|narration|audio|speech|voice)\b/gi, "")
+        .replace(/\b(of|for|from|the|this|following|script|text|in|mp3|wav|ogg|format)\b/gi, "")
+        .replace(/[:"""]/g, "")
+        .trim();
+
+      // If cleaned script is too short, use full content as script
+      if (ttsScript.length < 10) ttsScript = content;
+
+      setMessages((prev) => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `Here's your voiceover generator. Select a voice, format, and click generate:`,
+        timestamp: new Date(),
+        ttsScript: ttsScript,
+      }]);
+
+      clearTimeout(phaseTimer);
+      setIsTyping(false);
+      return;
+    }
+
     // AI Video editing / generation detection
     const isVideoEdit = /\b(edit|cut|trim|crop|add\s*(text|music|filter|transition|overlay|effect)|change\s*(speed|timing|pacing)|slow\s*mo|speed\s*up|reorder|split|delete\s*scene|regenerate|re-?render|improve\s*video|enhance\s*video|make\s*(it|the\s*video)\s*(better|shorter|longer|faster|slower)|analyz|check\s*quality|visual\s*consistency|quality\s*check)\b/i.test(content);
     const isVideoCreation = /\b(create|make|generate|produce)\b.*\b(video|short|reel|tiktok|clip|documentary|youtube|essay|explainer)\b.*\b(about|on|for|of)\b/i.test(content)
