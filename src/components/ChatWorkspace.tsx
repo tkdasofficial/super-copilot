@@ -157,7 +157,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }
 
     // Agent mode: web apps & games (2D/3D) builder detection
-    const isAgent = taskMode === "agent" || /\b(build|create|make|generate)\b.*\b(web\s*app|website|landing\s*page|dashboard|portfolio|SPA|single.page.app|game|2d|3d|platformer|rpg|puzzle|arcade|shooter)\b/i.test(content);
+    const isAgent = taskMode === "agent" || /\b(build|create|make|generate)\b.*\b(web\s*app|website|landing\s*page|dashboard|portfolio|SPA|single.page.app|game|2d|3d|platformer|rpg|puzzle|arcade|shooter|racing|runner|fighting|tower.defense|card.game|tetris|snake|pong|breakout|flappy|chess|checkers|fps|open.world|sandbox|survival|roguelike|roguelite|metroidvania|beat.em.up|rhythm|simulation|strategy|mmorpg|moba|battle.royale)\b/i.test(content);
 
     if (isAgent) {
       try {
