@@ -38,7 +38,7 @@ const AdminLayout = () => {
 
   useEffect(() => {
     if (!loading && !isAdmin) {
-      navigate("/");
+      navigate("/app/new");
     }
   }, [isAdmin, loading, navigate]);
 
@@ -83,7 +83,7 @@ const AdminLayout = () => {
         </nav>
         <div className="px-3 pb-4">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/app/new")}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -130,7 +130,7 @@ const AdminLayout = () => {
           })}
         </nav>
         <div className="px-3 pb-4">
-          <button onClick={() => navigate("/")} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
+          <button onClick={() => navigate("/app/new")} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors">
             <ArrowLeft className="w-4 h-4" />
             <span>Back to App</span>
           </button>

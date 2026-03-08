@@ -18,6 +18,7 @@ type Props = {
   onMenuClick: () => void;
   initialMessages?: ChatMessageType[];
   chatId?: string;
+  onChatCreated?: (id: string) => void;
 };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
@@ -25,7 +26,7 @@ const CODE_GEN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/code-gen
 const FILE_CREATOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/file-creator`;
 const AGENT_PLANNER_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-planner`;
 
-const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalChatId }: Props) => {
+const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalChatId, onChatCreated }: Props) => {
   const [messages, setMessages] = useState<ChatMessageType[]>(initialMessages || []);
   const [isTyping, setIsTyping] = useState(false);
   const initialMsgCount = useRef((initialMessages || []).length);
@@ -122,6 +123,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const newId = addChat(title, content, tool?.id);
       setChatId(newId);
       setChatTitle(title);
+      onChatCreated?.(newId);
     }
 
     // Transition from "thinking" to the actual work phase after a delay
@@ -667,6 +669,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const newId = addChat(title, `Uploaded ${file.name}`, tool?.id);
       setChatId(newId);
       setChatTitle(title);
+      onChatCreated?.(newId);
     }
 
     try {
@@ -706,6 +709,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const newId = addChat(title, `Convert ${file.name}`, tool?.id);
       setChatId(newId);
       setChatTitle(title);
+      onChatCreated?.(newId);
     }
 
     setMessages((prev) => [...prev, {

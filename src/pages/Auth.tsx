@@ -59,7 +59,7 @@ const Auth = () => {
             toast({ title: "2FA Required", description: "Enter the code from your authenticator app." });
           } else {
             // Factor not found, proceed normally
-            navigate("/");
+            navigate("/app/new");
           }
         } else if (twoFAMethod === "email") {
           await supabase.auth.signOut();
@@ -68,7 +68,7 @@ const Auth = () => {
           setMode("otp-email");
           toast({ title: "2FA Required", description: "We sent a verification code to your email." });
         } else {
-          navigate("/");
+          navigate("/app/new");
         }
       }
     } catch (e: any) {
@@ -88,7 +88,7 @@ const Auth = () => {
         type: "email",
       });
       if (error) throw error;
-      navigate("/");
+      navigate("/app/new");
     } catch (e: any) {
       toast({ title: "Invalid code", description: e.message, variant: "destructive" });
     } finally {
@@ -113,7 +113,7 @@ const Auth = () => {
         code: otpCode,
       });
       if (vErr) throw vErr;
-      navigate("/");
+      navigate("/app/new");
     } catch (e: any) {
       toast({ title: "Invalid code", description: e.message, variant: "destructive" });
     } finally {

@@ -45,19 +45,26 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
+              {/* Public */}
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
-              <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-              <Route path="/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
-              <Route path="/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
-              <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
+
+              {/* App routes */}
+              <Route path="/" element={<Navigate to="/app/new" replace />} />
+              <Route path="/app/new" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/app/chat/:chatId" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+              <Route path="/app/account" element={<ProtectedRoute><Account /></ProtectedRoute>} />
+              <Route path="/app/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+              <Route path="/app/upgrade" element={<ProtectedRoute><Upgrade /></ProtectedRoute>} />
+              <Route path="/app/support" element={<ProtectedRoute><Support /></ProtectedRoute>} />
+              <Route path="/app/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
+
+              {/* Admin */}
               <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="/admin/dashboard" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="subscriptions" element={<AdminSubscriptions />} />
                 <Route path="chat-sessions" element={<AdminChatSessions />} />
@@ -67,6 +74,7 @@ const App = () => (
                 <Route path="notifications" element={<AdminNotifications />} />
                 <Route path="system" element={<AdminSystemSettings />} />
               </Route>
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
