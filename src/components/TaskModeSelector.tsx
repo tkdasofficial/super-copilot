@@ -91,9 +91,6 @@ const TaskModeSelector = ({ selectedMode, onModeChange }: Props) => {
             style={{ position: "fixed", top: popupPos.top, left: popupPos.left, transform: "translateY(-100%)" }}
             className="w-52 bg-card border border-border rounded-xl shadow-xl z-[9999] overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200"
           >
-            <div className="px-3 py-2 border-b border-border">
-              <p className="text-xs font-medium text-muted-foreground">Select task mode</p>
-            </div>
             <div className="p-1.5">
               {TASK_MODES.map((mode) => {
                 const Icon = mode.icon;
