@@ -42,7 +42,8 @@ const Index = () => {
       <DesktopSidebar
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
-        isMainChat={!selectedTool}
+        isMainChat={!selectedTool && !activeChatId}
+        activeChatId={activeChatId}
         chatHistory={history}
       />
       <MobileSidebar
@@ -50,7 +51,8 @@ const Index = () => {
         onClose={() => setSidebarOpen(false)}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
-        isMainChat={!selectedTool}
+        isMainChat={!selectedTool && !activeChatId}
+        activeChatId={activeChatId}
         chatHistory={history}
       />
       <main className="flex-1 flex flex-col min-w-0">

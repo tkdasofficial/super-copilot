@@ -9,10 +9,11 @@ type Props = {
   onNewChat: () => void;
   onSelectChat: (id: string) => void;
   isMainChat: boolean;
+  activeChatId?: string;
   chatHistory: { id: string; title: string; toolId?: string; preview: string; date: string; createdAt: number }[];
 };
 
-const DesktopSidebar = ({ onNewChat, onSelectChat, isMainChat, chatHistory }: Props) => {
+const DesktopSidebar = ({ onNewChat, onSelectChat, isMainChat, activeChatId, chatHistory }: Props) => {
   const navigate = useNavigate();
   const { renameChat, deleteChat, searchHistory } = useChatHistory();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -112,7 +113,15 @@ const DesktopSidebar = ({ onNewChat, onSelectChat, isMainChat, chatHistory }: Pr
                   </div>
                 ) : (
                   <div className="flex items-center">
-                    <button onClick={() => onSelectChat(chat.id)} className="flex-1 text-left px-3 py-2 rounded-lg text-sm text-sidebar-foreground hover:bg-sidebar-accent transition-colors truncate">
+                    <button
+                      onClick={() => onSelectChat(chat.id)}
+                      className={cn(
+                        "flex-1 text-left px-3 py-2 rounded-lg text-sm transition-colors truncate",
+                        activeChatId === chat.id
+                          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent"
+                      )}
+                    >
                       {chat.title}
                     </button>
                     <div className="hidden group-hover:flex items-center gap-0.5 pr-1">
