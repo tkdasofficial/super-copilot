@@ -76,16 +76,14 @@ function extractExports(code: string): { defaultExport: string | null; namedExpo
 /* ── Strip imports and exports for inline execution ── */
 function stripForInline(code: string): string {
   let result = code;
-  // Remove all import statements
-  result = result.replace(/^import\s+.*?from\s+['"].*?['"];?\s*$/gm, "");
-  result = result.replace(/^import\s+['"].*?['"];?\s*$/gm, "");
-  result = result.replace(/^import\s+type\s+.*$/gm, "");
-  
-  // Remove export default — keep the declaration
-  result = result.replace(/^export\s+default\s+/gm, "");
-  
-  // Remove named exports keyword but keep declarations
-  result = result.replace(/^export\s+(?=(?:const|let|var|function|class)\s)/gm, "");
+  // Remove all import statements (use non-multiline to catch mid-line imports from sucrase)
+  result = result.replace(/import\s+[\w{},*\s]+\s+from\s+['"][^'"]*['"];?\s*/g, "");
+  result = result.replace(/import\s+['"][^'"]*['"];?\s*/g, "");
+  result = result.replace(/import\s+type\s+[^;]*;?\s*/g, "");
+  // Remove export default (keep declaration)
+  result = result.replace(/export\s+default\s+/g, "");
+  // Remove named export keyword (keep declaration)  
+  result = result.replace(/export\s+(?=(?:const|let|var|function|class)\s)/g, "");
   // Remove standalone export { ... }
   result = result.replace(/^export\s*\{[^}]*\};?\s*$/gm, "");
   return result.trim();
