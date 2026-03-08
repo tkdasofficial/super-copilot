@@ -25,12 +25,11 @@ const FILE_CREATOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/file
 const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalChatId }: Props) => {
   const [messages, setMessages] = useState<ChatMessageType[]>(initialMessages || []);
   const [isTyping, setIsTyping] = useState(false);
-  const newMsgIds = useRef(new Set<string>());
+  const initialMsgCount = useRef((initialMessages || []).length);
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase>("thinking");
   const [chatId, setChatId] = useState<string | null>(externalChatId || null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { addChat, updateChatMessages } = useChatHistory();
-  const markNew = (id: string) => { newMsgIds.current.add(id); };
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
