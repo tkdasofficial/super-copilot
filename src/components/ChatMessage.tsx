@@ -147,7 +147,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
   return (
     <div
       className={cn(
-        "px-3 sm:px-4 max-w-2xl mx-auto transition-all duration-300",
+        "px-3 sm:px-4 md:px-6 w-full max-w-2xl mx-auto transition-all duration-300",
         isUser ? "py-1.5" : "py-3",
         isNew && "animate-fade-in"
       )}
@@ -157,38 +157,38 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
           <div
             className={cn(
               "relative rounded-2xl rounded-br-sm bg-muted text-foreground transition-all duration-200",
-              size === "short" && "px-4 py-2 text-[15px] max-w-[75%]",
-              size === "medium" && "px-4 py-2.5 text-[15px] max-w-[82%]",
-              size === "long" && "px-4 py-3 text-[14px] max-w-[88%] leading-relaxed",
+              size === "short" && "px-3.5 py-2 text-[15px] max-w-[80%] sm:max-w-[75%]",
+              size === "medium" && "px-3.5 py-2.5 text-[15px] max-w-[85%] sm:max-w-[82%]",
+              size === "long" && "px-3.5 py-3 text-[14px] max-w-[92%] sm:max-w-[88%] leading-relaxed",
             )}
           >
             {message.imageUrl && (
               <img
                 src={message.imageUrl}
                 alt="Attached"
-                className="w-36 h-36 rounded-xl object-cover mb-2.5 border border-background/10"
+                className="w-28 sm:w-36 h-28 sm:h-36 rounded-xl object-cover mb-2.5 border border-background/10"
               />
             )}
-            <p className="leading-relaxed whitespace-pre-wrap">{message.content}</p>
+            <p className="leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
           </div>
         </div>
       ) : (
-        <div className="group relative max-w-[92%]">
+        <div className="group relative max-w-full sm:max-w-[92%]">
           <div className="space-y-2.5">
             {message.imageUrl && (
               <img
                 src={message.imageUrl}
                 alt="Generated"
-                className="max-w-sm w-full rounded-xl border border-border shadow-sm"
+                className="max-w-xs sm:max-w-sm w-full rounded-xl border border-border shadow-sm"
               />
             )}
 
             {message.content && isTask && (
-              <div className="rounded-xl border border-border bg-card overflow-hidden" style={{ aspectRatio: "1.5 / 1", minHeight: 280 }}>
-                <div className="h-full overflow-y-auto p-5">
+              <div className="rounded-xl border border-border bg-card overflow-hidden w-full">
+                <div className="overflow-y-auto p-3 sm:p-4 md:p-5 max-h-[50vh] sm:max-h-[60vh] md:max-h-[70vh]">
                   <div
                     className={cn(
-                      "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground",
+                      "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground text-[13px] sm:text-sm",
                       proseClasses
                     )}
                   >
@@ -204,13 +204,13 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                 className={cn(
                   "relative rounded-2xl rounded-tl-sm",
                   size === "short"
-                    ? "bg-card border border-border px-4 py-2.5 inline-block"
+                    ? "bg-card border border-border px-3.5 py-2.5 inline-block"
                     : "px-0.5"
                 )}
               >
                 <div
                   className={cn(
-                    "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground",
+                    "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground text-[13px] sm:text-sm break-words",
                     proseClasses
                   )}
                 >
@@ -237,48 +237,22 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               <WebAppPreviewCard project={message.webApp} />
             )}
 
-            {/* ChatGPT-style action bar */}
+            {/* Action bar */}
             {message.content && typingDone && (
               <div className="flex items-center gap-0.5 pt-1">
-                {/* TTS */}
-                <ActionButton
-                  onClick={handleSpeak}
-                  active={speaking}
-                  title={speaking ? "Stop listening" : "Listen"}
-                >
+                <ActionButton onClick={handleSpeak} active={speaking} title={speaking ? "Stop listening" : "Listen"}>
                   {speaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                 </ActionButton>
-
-                {/* Copy */}
                 <ActionButton onClick={handleCopy} active={copied} title="Copy">
                   {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 </ActionButton>
-
-                {/* Thumbs up */}
-                <ActionButton
-                  onClick={() => handleFeedback("up")}
-                  active={feedback === "up"}
-                  title="Good response"
-                >
+                <ActionButton onClick={() => handleFeedback("up")} active={feedback === "up"} title="Good response">
                   <ThumbsUp className="w-3.5 h-3.5" />
                 </ActionButton>
-
-                {/* Thumbs down */}
-                <ActionButton
-                  onClick={() => handleFeedback("down")}
-                  active={feedback === "down"}
-                  title="Bad response"
-                >
+                <ActionButton onClick={() => handleFeedback("down")} active={feedback === "down"} title="Bad response">
                   <ThumbsDown className="w-3.5 h-3.5" />
                 </ActionButton>
-
-                {/* Report */}
-                <ActionButton
-                  onClick={handleReport}
-                  active={reported}
-                  disabled={reported}
-                  title="Report"
-                >
+                <ActionButton onClick={handleReport} active={reported} disabled={reported} title="Report">
                   <Flag className="w-3.5 h-3.5" />
                 </ActionButton>
               </div>
