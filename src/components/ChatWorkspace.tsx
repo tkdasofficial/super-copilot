@@ -34,6 +34,48 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   const [chatTitle, setChatTitle] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { addChat, updateChatMessages } = useChatHistory();
+  const { tasks: bgTasks, activeTasks, dispatch: dispatchBgTask } = useBackgroundTasks(chatId);
+
+  // Handle background task completion — inject result as assistant message
+  const handleBgTaskResult = useCallback((task: BackgroundTask) => {
+    if (!task.result) return;
+    const r = task.result;
+    const msgBase = { id: `bg-${task.id}`, role: "assistant" as const, timestamp: new Date() };
+
+    if (r.type === "chat") {
+      setMessages((prev) => [...prev, { ...msgBase, content: r.content }]);
+    } else if (r.type === "image") {
+      setMessages((prev) => [...prev, { ...msgBase, content: "Here is your generated image!", imageUrl: r.imageUrl }]);
+    } else if (r.type === "code") {
+      setMessages((prev) => [...prev, {
+        ...msgBase,
+        content: r.explanation || "Here's your generated web application!",
+        webApp: { files: r.files, framework: r.framework, dependencies: r.dependencies || {}, entryPoint: r.entryPoint || "index.html", explanation: r.explanation || "", quality: "production" },
+      }]);
+    } else if (r.type === "file") {
+      setMessages((prev) => [...prev, {
+        ...msgBase,
+        content: r.explanation || `Here's your generated file:`,
+        generatedFile: { fileName: r.fileName, content: r.content, mimeType: r.mimeType, format: r.format },
+      }]);
+    } else if (r.type === "agent") {
+      setMessages((prev) => [...prev, {
+        ...msgBase,
+        content: `🚀 **${r.plan?.title}** — ${r.stepResults?.length || 0} steps completed`,
+        agentPlan: r.plan,
+      }]);
+    }
+  }, []);
+
+  // On mount: recover any completed background tasks that have no corresponding message
+  useEffect(() => {
+    for (const task of bgTasks) {
+      if (task.status === "done" && task.result) {
+        const hasBgMsg = messages.some((m) => m.id === `bg-${task.id}`);
+        if (!hasBgMsg) handleBgTaskResult(task);
+      }
+    }
+  }, [bgTasks]);
 
   // Set title from initial messages when loading an existing chat
   useEffect(() => {
