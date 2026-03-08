@@ -36,12 +36,15 @@ export type VideoEditRequest = {
   isNewProject: boolean;
 };
 
+export type WebAppQuality = "prototype" | "production";
+
 export type WebAppData = {
   files: { path: string; content: string }[];
   framework: "react-vite" | "nextjs-static" | "vanilla-html";
   dependencies: Record<string, string>;
   entryPoint: string;
   explanation: string;
+  quality?: WebAppQuality;
 };
 
 export type ChatMessage = {

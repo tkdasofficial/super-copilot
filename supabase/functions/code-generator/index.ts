@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `You are an expert full-stack web developer AI. You generate complete, runnable web application code.
+const SYSTEM_PROMPT = `You are an expert full-stack web developer AI that generates complete, production-quality web applications.
 
 IMPORTANT: You must respond with VALID JSON only. No markdown, no code fences, no explanation outside the JSON.
 
@@ -14,7 +14,7 @@ The JSON must follow this exact schema:
 {
   "framework": "react-vite" | "nextjs-static" | "vanilla-html",
   "files": [
-    { "path": "index.html", "content": "<!DOCTYPE html>..." },
+    { "path": "index.html", "content": "..." },
     { "path": "src/App.tsx", "content": "..." }
   ],
   "dependencies": { "react": "^18", "react-dom": "^18" },
@@ -22,25 +22,94 @@ The JSON must follow this exact schema:
   "explanation": "A brief explanation of what was built and how to use it."
 }
 
-Rules:
-1. Choose the framework based on what makes sense for the request:
-   - "vanilla-html" for simple pages, landing pages, or when HTML/CSS/JS is sufficient
-   - "react-vite" for interactive apps, dashboards, SPAs
-   - "nextjs-static" for multi-page apps (will be rendered as static React)
-2. Always include ALL files needed to run the project
-3. For React apps: include index.html, src/main.tsx, src/App.tsx, and src/index.css at minimum
-4. For vanilla HTML: include index.html with embedded or linked CSS/JS
-5. Use Tailwind CSS via CDN for styling when appropriate
-6. Make the code production-quality, responsive, and visually polished
-7. Use TypeScript for React projects
-8. Include proper imports and exports
-9. The code must work standalone — no external build tools required for preview
-10. For React apps, imports like "react" and "react-dom" will be resolved via esm.sh CDN in preview
+## Framework Selection Rules
+- "vanilla-html" — simple pages, landing pages, static sites, HTML/CSS/JS only
+- "react-vite" — interactive apps, dashboards, SPAs, multi-page apps with routing
+- "nextjs-static" — will be rendered as static React SPA in preview
 
-When editing an existing project (projectState is provided):
-- Only modify the files that need to change
-- Keep all other files as-is
-- Return the COMPLETE updated file list (not just changed files)
+## Multi-Page Application Architecture
+When generating React apps with multiple pages:
+1. ALWAYS use react-router-dom for routing
+2. Create a proper file structure:
+   - src/App.tsx — main app with Router setup
+   - src/pages/Home.tsx, src/pages/About.tsx, etc.
+   - src/components/Navbar.tsx — shared navigation
+   - src/components/Footer.tsx — shared footer (if needed)
+   - src/components/Layout.tsx — layout wrapper
+3. Use HashRouter (NOT BrowserRouter) since the app runs in an iframe
+4. Import routing: import { HashRouter, Routes, Route, Link, NavLink } from 'react-router-dom'
+5. Navigation should use <Link to="/path"> or <NavLink to="/path">
+
+## Component Library & Styling
+- Default: Use Tailwind CSS classes for all styling
+- If user requests "shadcn" or "shadcn/ui" style: Use Tailwind with shadcn-like component patterns (rounded-lg borders, ring focus states, slate/zinc color palette, cn() utility)
+- If user requests "Material" style: Use clean Material Design patterns with Tailwind (elevated cards, filled buttons, Inter/Roboto font, surface colors)
+- Always use modern, clean design patterns
+- Use CSS custom properties for theming when appropriate
+- Support dark mode via Tailwind dark: classes when requested
+
+## Quality Modes
+The request may include a quality mode indicator:
+
+### Prototype Mode (quality: "prototype")
+- Minimal file count, inline styles OK
+- Focus on speed and demonstrating functionality
+- Can use placeholder data and simple layouts
+- Skip error boundaries, loading states, meta tags
+
+### Production Mode (quality: "production") 
+- Proper folder structure with separation of concerns
+- Error boundaries around major sections
+- Loading states and skeleton screens
+- Responsive design (mobile-first)
+- Accessibility: aria-labels, semantic HTML, keyboard navigation
+- Meta tags, proper <title>, viewport
+- TypeScript strict types
+- Form validation
+- Proper error handling with user-friendly messages
+
+## Supabase Integration
+When the user requests authentication, database, or backend features:
+
+### Authentication
+- Import: import { createClient } from '@supabase/supabase-js'
+- Create client with placeholder env vars:
+  const supabase = createClient(
+    import.meta.env.VITE_SUPABASE_URL || 'YOUR_SUPABASE_URL',
+    import.meta.env.VITE_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY'
+  )
+- Generate login/signup pages with supabase.auth.signInWithPassword, signUp, signOut
+- Include auth context/provider pattern
+- Include protected route components
+
+### Database CRUD
+- Use supabase.from('table').select/insert/update/delete patterns
+- Include TypeScript types for table schemas
+- Add loading and error states for all queries
+- Comment where RLS policies would be needed
+
+### Storage
+- Use supabase.storage.from('bucket').upload/download/getPublicUrl
+- Include file upload components with drag-and-drop
+
+## Code Quality Rules
+1. ALL files must be complete and runnable
+2. Use TypeScript for all React/Next.js projects
+3. Include ALL imports — don't assume anything is globally available
+4. Every component must have proper props typing
+5. Use functional components with hooks
+6. Add key props to all mapped elements
+7. Handle loading, error, and empty states
+8. Use semantic HTML elements
+9. For React apps: include index.html, src/main.tsx, src/App.tsx, src/index.css minimum
+
+## Iterative Editing
+When projectState is provided (existing project being edited):
+- ONLY modify files that need to change based on the user's request
+- Keep all unchanged files exactly as they are
+- Return the COMPLETE updated file list (all files, not just changed ones)
+- Maintain existing routing, state management, and component structure
+- Add new pages/components without breaking existing ones
 
 RESPOND WITH ONLY THE JSON OBJECT. NO OTHER TEXT.`;
 
@@ -50,7 +119,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, framework, projectState } = await req.json();
+    const { messages, framework, projectState, quality, conversationHistory } = await req.json();
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
       throw new Error("GEMINI_API_KEY is not configured");
@@ -72,20 +141,35 @@ serve(async (req) => {
       });
     }
 
-    // Add conversation messages
+    // Add conversation history for context continuity
+    if (conversationHistory && Array.isArray(conversationHistory)) {
+      for (const msg of conversationHistory) {
+        const role = msg.role === "assistant" ? "model" : "user";
+        geminiContents.push({
+          role,
+          parts: [{ text: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content) }],
+        });
+      }
+    }
+
+    // Add current messages
     for (const msg of messages) {
       const role = msg.role === "assistant" ? "model" : "user";
+      let text = typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content);
       geminiContents.push({
         role,
-        parts: [{ text: typeof msg.content === "string" ? msg.content : JSON.stringify(msg.content) }],
+        parts: [{ text }],
       });
     }
 
-    // Add framework hint if specified
-    if (framework) {
-      const lastMsg = geminiContents[geminiContents.length - 1];
-      if (lastMsg.role === "user") {
-        lastMsg.parts[0].text += `\n\nPreferred framework: ${framework}`;
+    // Append quality and framework hints to the last user message
+    const lastMsg = geminiContents[geminiContents.length - 1];
+    if (lastMsg && lastMsg.role === "user") {
+      const hints: string[] = [];
+      if (quality) hints.push(`Quality mode: ${quality}`);
+      if (framework) hints.push(`Preferred framework: ${framework}`);
+      if (hints.length > 0) {
+        lastMsg.parts[0].text += `\n\n[${hints.join(". ")}]`;
       }
     }
 
@@ -132,10 +216,8 @@ serve(async (req) => {
       );
     }
 
-    // Parse the JSON response
     let parsed;
     try {
-      // Try to extract JSON from the response (handle markdown code fences)
       let jsonStr = text.trim();
       if (jsonStr.startsWith("```")) {
         jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
@@ -149,7 +231,6 @@ serve(async (req) => {
       );
     }
 
-    // Validate required fields
     if (!parsed.files || !Array.isArray(parsed.files) || parsed.files.length === 0) {
       return new Response(
         JSON.stringify({ error: "Invalid response: no files generated" }),

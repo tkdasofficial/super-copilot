@@ -162,6 +162,18 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         // Gather existing project state from previous messages
         const lastWebApp = [...messages].reverse().find((m) => m.webApp)?.webApp;
 
+        // Build conversation history for context continuity
+        const conversationHistory = messages
+          .filter((m) => !m.imageUrl && !m.videos && !m.videoGeneration && !m.videoEdit)
+          .map((m) => ({ role: m.role, content: m.content }));
+
+        // Detect quality mode from content
+        const quality = /\b(production|prod|professional|polished)\b/i.test(content)
+          ? "production"
+          : /\b(prototype|proto|quick|simple|fast|basic)\b/i.test(content)
+          ? "prototype"
+          : "production"; // default to production for 10x quality
+
         const resp = await fetch(CODE_GEN_URL, {
           method: "POST",
           headers: {
@@ -171,6 +183,8 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
           body: JSON.stringify({
             messages: [{ role: "user", content }],
             projectState: lastWebApp || undefined,
+            conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
+            quality,
           }),
         });
 
@@ -188,6 +202,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
             dependencies: data.dependencies || {},
             entryPoint: data.entryPoint || "index.html",
             explanation: data.explanation || "",
+            quality,
           },
         }]);
       } catch (e: any) {

@@ -20,18 +20,77 @@ export function buildPreviewHTML(
   framework: string,
   dependencies: Record<string, string> = {}
 ): string {
-  switch (framework) {
-    case "react-vite":
-    case "nextjs-static":
-      return buildReactPreview(files, dependencies);
-    case "vanilla-html":
-    default:
-      return buildVanillaPreview(files);
+  const base = (() => {
+    switch (framework) {
+      case "react-vite":
+      case "nextjs-static":
+        return buildReactPreview(files, dependencies);
+      case "vanilla-html":
+      default:
+        return buildVanillaPreview(files);
+    }
+  })();
+
+  // Wrap with error boundary & console capture
+  return injectRuntimeHelpers(base);
+}
+
+/**
+ * Inject console capture and error overlay into preview HTML.
+ * Posts messages to parent via postMessage.
+ */
+function injectRuntimeHelpers(html: string): string {
+  const helperScript = `
+<script>
+(function() {
+  // Console capture — relay to parent
+  const _origLog = console.log;
+  const _origWarn = console.warn;
+  const _origError = console.error;
+  function relay(level, args) {
+    try {
+      const msg = Array.from(args).map(a => {
+        if (typeof a === 'object') try { return JSON.stringify(a, null, 2); } catch { return String(a); }
+        return String(a);
+      }).join(' ');
+      window.parent.postMessage({ type: 'console', level, message: msg }, '*');
+    } catch {}
   }
+  console.log = function() { relay('log', arguments); _origLog.apply(console, arguments); };
+  console.warn = function() { relay('warn', arguments); _origWarn.apply(console, arguments); };
+  console.error = function() { relay('error', arguments); _origError.apply(console, arguments); };
+
+  // Global error handler with overlay
+  window.onerror = function(msg, src, line, col, err) {
+    const detail = err?.stack || msg;
+    relay('error', [detail]);
+    showErrorOverlay(String(msg), line, src);
+  };
+  window.addEventListener('unhandledrejection', function(e) {
+    const msg = e.reason?.stack || e.reason?.message || String(e.reason);
+    relay('error', [msg]);
+    showErrorOverlay(msg);
+  });
+
+  function showErrorOverlay(message, line, source) {
+    if (document.getElementById('__err_overlay')) return;
+    const d = document.createElement('div');
+    d.id = '__err_overlay';
+    d.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:40%;overflow:auto;background:#1e1e2e;color:#f38ba8;font-family:monospace;font-size:12px;padding:12px 16px;z-index:999999;border-top:2px solid #f38ba8;';
+    d.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="color:#fab387">⚠ Runtime Error</b><button onclick="this.parentElement.parentElement.remove()" style="background:none;border:none;color:#6c7086;cursor:pointer;font-size:16px">✕</button></div><pre style="margin:0;white-space:pre-wrap;word-break:break-word">' + message.replace(/</g,'&lt;') + '</pre>' + (line ? '<div style="color:#6c7086;margin-top:4px">Line ' + line + (source ? ' in ' + source : '') + '</div>' : '');
+    document.body.appendChild(d);
+  }
+})();
+<\/script>`;
+
+  // Insert before </head> or at start
+  if (html.includes("</head>")) {
+    return html.replace("</head>", helperScript + "\n</head>");
+  }
+  return helperScript + html;
 }
 
 function buildVanillaPreview(files: GeneratedFile[]): string {
-  // Find the main HTML file
   const htmlFile = files.find(
     (f) => f.path === "index.html" || f.path.endsWith("/index.html")
   );
@@ -39,46 +98,35 @@ function buildVanillaPreview(files: GeneratedFile[]): string {
   if (htmlFile) {
     let html = htmlFile.content;
 
-    // Inline CSS files referenced in the HTML
     const cssFiles = files.filter((f) => f.path.endsWith(".css"));
     for (const css of cssFiles) {
-      // Replace <link> references with inline styles
       const linkPattern = new RegExp(
-        `<link[^>]*href=[\\\"'](?:\\\\./)?${escapeRegex(css.path)}[\\\"'][^>]*>`,
+        `<link[^>]*href=["'](?:\\./)?${escapeRegex(css.path)}["'][^>]*>`,
         "gi"
       );
       html = html.replace(linkPattern, `<style>${css.content}</style>`);
     }
 
-    // Inline JS files referenced in the HTML
     const jsFiles = files.filter(
       (f) => f.path.endsWith(".js") || f.path.endsWith(".ts")
     );
     for (const js of jsFiles) {
       const scriptPattern = new RegExp(
-        `<script[^>]*src=[\\\"'](?:\\\\./)?${escapeRegex(js.path)}[\\\"'][^>]*>\\\\s*</script>`,
+        `<script[^>]*src=["'](?:\\./)?${escapeRegex(js.path)}["'][^>]*>\\s*</script>`,
         "gi"
       );
-      html = html.replace(
-        scriptPattern,
-        `<script>${js.content}</script>`
-      );
+      html = html.replace(scriptPattern, `<script>${js.content}</script>`);
     }
 
-    // If CSS/JS files weren't linked, append them
     if (!html.includes("<style>") && cssFiles.length > 0) {
       const styles = cssFiles.map((f) => `<style>${f.content}</style>`).join("\n");
       html = html.replace("</head>", `${styles}\n</head>`);
     }
 
     if (jsFiles.length > 0) {
-      const unlinkedJS = jsFiles.filter(
-        (f) => !html.includes(f.content)
-      );
+      const unlinkedJS = jsFiles.filter((f) => !html.includes(f.content));
       if (unlinkedJS.length > 0) {
-        const scripts = unlinkedJS
-          .map((f) => `<script>${f.content}</script>`)
-          .join("\n");
+        const scripts = unlinkedJS.map((f) => `<script>${f.content}</script>`).join("\n");
         html = html.replace("</body>", `${scripts}\n</body>`);
       }
     }
@@ -86,15 +134,8 @@ function buildVanillaPreview(files: GeneratedFile[]): string {
     return html;
   }
 
-  // No HTML file — build one from CSS and JS
-  const cssContent = files
-    .filter((f) => f.path.endsWith(".css"))
-    .map((f) => f.content)
-    .join("\n");
-  const jsContent = files
-    .filter((f) => f.path.endsWith(".js") || f.path.endsWith(".ts"))
-    .map((f) => f.content)
-    .join("\n");
+  const cssContent = files.filter((f) => f.path.endsWith(".css")).map((f) => f.content).join("\n");
+  const jsContent = files.filter((f) => f.path.endsWith(".js") || f.path.endsWith(".ts")).map((f) => f.content).join("\n");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -102,11 +143,11 @@ function buildVanillaPreview(files: GeneratedFile[]): string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"><\/script>
   <style>${cssContent}</style>
 </head>
 <body>
-  <script>${jsContent}</script>
+  <script>${jsContent}<\/script>
 </body>
 </html>`;
 }
@@ -115,7 +156,6 @@ function buildReactPreview(
   files: GeneratedFile[],
   dependencies: Record<string, string>
 ): string {
-  // Find key React files
   const appFile = files.find(
     (f) =>
       f.path === "src/App.tsx" ||
@@ -127,23 +167,25 @@ function buildReactPreview(
   const cssFiles = files.filter((f) => f.path.endsWith(".css"));
   const allStyles = cssFiles.map((f) => f.content).join("\n");
 
-  // Build import map for dependencies
+  // Build import map — react-router-dom included by default for multi-page support
   const importMap: Record<string, string> = {
-    react: "https://esm.sh/react@18?dev",
+    "react": "https://esm.sh/react@18?dev",
     "react-dom": "https://esm.sh/react-dom@18?dev",
     "react-dom/client": "https://esm.sh/react-dom@18/client?dev",
     "react/jsx-runtime": "https://esm.sh/react@18/jsx-runtime?dev",
+    "react-router-dom": "https://esm.sh/react-router-dom@6?dev&deps=react@18,react-dom@18",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
   };
 
   // Add user dependencies
   for (const [pkg, version] of Object.entries(dependencies)) {
     if (!importMap[pkg]) {
       const ver = version.replace(/[\^~]/, "");
-      importMap[pkg] = `https://esm.sh/${pkg}@${ver}`;
+      importMap[pkg] = `https://esm.sh/${pkg}@${ver}?deps=react@18,react-dom@18`;
     }
   }
 
-  // Collect all component/module files (non-CSS, non-HTML)
+  // Collect module files (non-CSS, non-HTML, non-JSON, non-MD)
   const moduleFiles = files.filter(
     (f) =>
       !f.path.endsWith(".css") &&
@@ -152,31 +194,35 @@ function buildReactPreview(
       !f.path.endsWith(".md")
   );
 
-  // Transform TSX/JSX to work in browser by stripping types and converting JSX
-  // We use a simple approach: wrap in a module script with importmap
-  let appCode = appFile?.content || "";
+  // Build dependency graph for proper ordering
+  const appCode = appFile ? stripTypeScript(appFile.content) : "";
 
-  // Strip TypeScript-specific syntax for browser compatibility
-  appCode = stripTypeScript(appCode);
+  // Process all non-app, non-main module files into blob URL modules
+  const componentFiles = moduleFiles.filter(
+    (f) => f !== appFile && !f.path.includes("main.")
+  );
 
-  // Build inline modules for additional component files
-  const additionalModules = moduleFiles
-    .filter((f) => f !== appFile && !f.path.includes("main."))
-    .map((f) => {
-      const moduleName = f.path
-        .replace(/^src\//, "")
-        .replace(/\.(tsx?|jsx?)$/, "");
-      const code = stripTypeScript(f.content);
-      return { name: moduleName, code };
-    });
+  // Generate blob URL registration for component modules
+  const componentRegistrations = componentFiles.map((f) => {
+    const code = stripTypeScript(f.content);
+    const modulePath = f.path.replace(/^src\//, "./").replace(/\.(tsx?|jsx?)$/, "");
+    return { path: modulePath, code, originalPath: f.path };
+  });
 
-  // Add additional modules to import map as blob URLs (handled via inline scripts)
-  const moduleScripts = additionalModules
-    .map(
-      (m) =>
-        `<script type="module" data-module="${m.name}">${m.code}</script>`
-    )
-    .join("\n");
+  // Build inline script that registers all components
+  const componentSetup = componentRegistrations.map((c) => {
+    // Create a simple namespace for components
+    const varName = c.originalPath
+      .replace(/^src\//, "")
+      .replace(/\.(tsx?|jsx?)$/, "")
+      .replace(/[\/\-\.]/g, "_");
+    return `
+// --- ${c.originalPath} ---
+const __module_${varName} = (function() {
+  ${c.code}
+  return { ${extractExportNames(c.code).join(", ")} };
+})();`;
+  }).join("\n");
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -184,43 +230,68 @@ function buildReactPreview(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preview</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com"><\/script>
   <script type="importmap">
   ${JSON.stringify({ imports: importMap }, null, 2)}
-  </script>
+  <\/script>
   <style>${allStyles}</style>
 </head>
 <body>
   <div id="root"></div>
-  ${moduleScripts}
   <script type="module">
-    import React from 'react';
+    import React, { useState, useEffect, useCallback, useRef, useMemo, useContext, createContext } from 'react';
     import { createRoot } from 'react-dom/client';
+    import { HashRouter, Routes, Route, Link, NavLink, useNavigate, useParams, useLocation, Navigate, Outlet } from 'react-router-dom';
+
+    ${componentSetup}
 
     ${appCode}
 
-    // Try to find the default export
-    const AppComponent = typeof App !== 'undefined' ? App : 
-                         typeof Default !== 'undefined' ? Default : 
-                         () => React.createElement('div', null, 'No App component found');
+    // Find the App component
+    const AppComponent = typeof App !== 'undefined' ? App :
+                         typeof Default !== 'undefined' ? Default :
+                         () => React.createElement('div', { style: { padding: '2rem', textAlign: 'center' } }, 'No App component found');
 
     const root = createRoot(document.getElementById('root'));
     root.render(React.createElement(AppComponent));
-  </script>
+  <\/script>
 </body>
 </html>`;
 }
 
 /**
+ * Extract exported names from stripped code for module namespace.
+ */
+function extractExportNames(code: string): string[] {
+  const names: string[] = [];
+  // Match: const/let/var/function/class Name
+  const patterns = [
+    /(?:const|let|var)\s+(\w+)\s*=/g,
+    /function\s+(\w+)/g,
+    /class\s+(\w+)/g,
+  ];
+  for (const pat of patterns) {
+    let m;
+    while ((m = pat.exec(code)) !== null) {
+      if (m[1] && !m[1].startsWith("_") && m[1][0] === m[1][0].toUpperCase()) {
+        names.push(m[1]);
+      }
+    }
+  }
+  // Dedupe
+  return [...new Set(names)];
+}
+
+/**
  * Strip TypeScript-specific syntax so code runs in the browser.
- * This is a lightweight transform — not a full TS compiler.
  */
 function stripTypeScript(code: string): string {
   let result = code;
 
-  // Remove import statements (they're handled via importmap or inlined)
+  // Remove import statements (handled via importmap or inlined globally)
   result = result.replace(/^import\s+.*?from\s+['"].*?['"];?\s*$/gm, "");
   result = result.replace(/^import\s+['"].*?['"];?\s*$/gm, "");
+  result = result.replace(/^import\s+type\s+.*$/gm, "");
 
   // Remove export default — keep the declaration
   result = result.replace(/^export\s+default\s+/gm, "");
@@ -228,17 +299,24 @@ function stripTypeScript(code: string): string {
   // Remove named exports
   result = result.replace(/^export\s+(?=(?:const|let|var|function|class|type|interface|enum))/gm, "");
 
-  // Remove type/interface declarations
-  result = result.replace(/^(?:export\s+)?(?:type|interface)\s+\w+[\s\S]*?(?=\n(?:const|let|var|function|class|export|import|\/\/|\n|$))/gm, "");
+  // Remove standalone export { ... } statements
+  result = result.replace(/^export\s*\{[^}]*\};?\s*$/gm, "");
 
-  // Remove type annotations from variables: const x: Type = ...
-  result = result.replace(/:\\s*(?:string|number|boolean|any|void|null|undefined|never|unknown|React\.\w+(?:<[^>]*>)?|\w+(?:<[^>]*>)?(?:\[\])?)\s*(?=[=,;\)\]\}])/g, "");
+  // Remove type/interface blocks
+  result = result.replace(/^(?:export\s+)?type\s+\w+\s*=\s*[^;]*;/gm, "");
+  result = result.replace(/^(?:export\s+)?interface\s+\w+\s*\{[^}]*\}/gm, "");
 
-  // Remove generic type parameters from function calls
-  result = result.replace(/<(?:string|number|boolean|any|void|null|undefined|never|unknown|\w+)(?:\[\])?>/g, "");
+  // Remove type annotations: `: Type` before = , ; ) ] }
+  result = result.replace(/:\s*(?:string|number|boolean|any|void|null|undefined|never|unknown|React\.\w+(?:<[^>]*>)?|\w+(?:<[^>]*>)?(?:\[\])?(?:\s*\|\s*(?:string|number|boolean|null|undefined|\w+))*)\s*(?=[=,;\)\]\}\n])/g, "");
+
+  // Remove generic type parameters from function declarations/calls
+  result = result.replace(/<(?:string|number|boolean|any|void|null|undefined|never|unknown|\w+)(?:\[\])?\s*(?:,\s*(?:string|number|boolean|any|void|null|undefined|never|unknown|\w+)(?:\[\])?)*>/g, "");
 
   // Remove "as Type" assertions
   result = result.replace(/\s+as\s+\w+(?:<[^>]*>)?/g, "");
+
+  // Remove non-null assertions (!)
+  result = result.replace(/(\w)\!/g, "$1");
 
   return result;
 }
