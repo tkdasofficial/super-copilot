@@ -6,6 +6,7 @@ import TaskModeSelector, { type TaskMode } from "./TaskModeSelector";
 type Props = {
   toolName?: string;
   onSend: (message: string, imageData?: { base64: string; mimeType: string }, taskMode?: TaskMode) => void;
+  onZipUpload?: (file: File) => void;
   disabled?: boolean;
 };
 
