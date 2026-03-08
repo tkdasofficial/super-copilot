@@ -191,6 +191,51 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
     }
   };
 
+  // ── Generate long-form video via stock footage pipeline ──
+  const handleLongFormVideo = async (args: any) => {
+    setPhase("generating");
+    const { topic, duration, aspect_ratio } = args;
+
+    try {
+      const url = await runLongFormPipeline(
+        topic,
+        duration || 120,
+        aspect_ratio || "16:9",
+        (state: LongFormPipelineState) => {
+          setTasks((prev) => {
+            const aiTask = prev.find((t) => t.id === "ai-decide");
+            return [aiTask!, ...state.tasks];
+          });
+
+          if (state.script) {
+            const chapterInfo = state.chapters?.map((c) => c.title).join(", ") || "";
+            setExplanation(`Creating "${state.script.title}" with ${state.script.totalScenes} scenes across ${state.script.chapters.length} chapters${chapterInfo ? `: ${chapterInfo}` : ""}`);
+          }
+
+          if (state.videoUrl) {
+            setVideoUrl(state.videoUrl);
+            onVideoReady?.(state.videoUrl);
+            setPhase("done");
+          }
+
+          if (state.error) {
+            setError(state.error);
+            setPhase("error");
+          }
+        }
+      );
+
+      if (!videoUrl) {
+        setVideoUrl(url);
+        onVideoReady?.(url);
+        setPhase("done");
+      }
+    } catch (e: any) {
+      setError(e.message);
+      setPhase("error");
+    }
+  };
+
   // ── Run visual analysis ──
   const handleAnalyzeVisuals = async (args: any) => {
     if (!existingProject) {
