@@ -129,6 +129,8 @@ const VideoEditorCard = ({ userMessage, existingProject, onProjectUpdate, onVide
       for (const call of toolCalls) {
         if (call.name === "generate_full_video") {
           await handleGenerateVideo(call.arguments);
+        } else if (call.name === "generate_long_form_video") {
+          await handleLongFormVideo(call.arguments);
         } else if (call.name === "edit_video") {
           await handleEditVideo(call.arguments);
         } else if (call.name === "analyze_visuals") {
