@@ -386,7 +386,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                     "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground text-[13px] sm:text-sm break-words",
                     proseClasses
                   )}>
-                    <ReactMarkdown>{displayed}</ReactMarkdown>
+                    <ReactMarkdown components={mdComponents}>{displayed}</ReactMarkdown>
                     {isActive && <span className="inline-block w-0.5 h-4 bg-foreground animate-pulse ml-0.5 align-text-bottom" />}
                   </div>
                 </div>
