@@ -156,72 +156,30 @@ const EmptyState = ({ tool, onPromptClick }: Props) => {
     );
   }
 
-  // Main empty state
+  // Main empty state — clean & minimal
   return (
     <div className="flex flex-col items-center justify-center h-full px-0 animate-fade-up overflow-hidden">
       {/* Hero */}
-      <div className="flex flex-col items-center mb-8 px-5">
-        <div className="w-12 h-12 rounded-full overflow-hidden mb-4 animate-spin-slow">
+      <div className="flex flex-col items-center mb-10 px-5">
+        <div className="w-11 h-11 rounded-full overflow-hidden mb-4 animate-spin-slow">
           <img src={logo} alt="Super Copilot" className="w-full h-full object-cover" />
         </div>
-        <h2 className="font-display text-xl sm:text-2xl font-semibold text-foreground text-center mb-1">
-          What can I help you create?
+        <h2 className="font-display text-lg sm:text-xl font-semibold text-foreground text-center">
+          What can I help you with?
         </h2>
-        <p className="text-muted-foreground text-xs sm:text-sm text-center max-w-sm">
-          Type anything or pick a feature below
-        </p>
       </div>
 
-      {/* Quick action pills */}
-      <div className="flex flex-wrap justify-center gap-2 mb-8 px-5 max-w-lg">
-        {QUICK_PROMPTS.map((sp, i) => {
-          const Icon = sp.icon;
-          return (
-            <button
-              key={i}
-              onClick={() => onPromptClick(sp.prompt)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full border border-border bg-card hover:bg-accent transition-colors group"
-            >
-              <Icon className="w-3.5 h-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-              <span className="text-xs text-foreground">{sp.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Marquee feature rows */}
-      <div className="w-full space-y-1.5 mb-8">
+      {/* 3 Marquee rows — slow & elegant */}
+      <div className="w-full space-y-2.5">
         {MARQUEE_ROWS.map((row, i) => (
           <MarqueeRow
             key={i}
             items={row}
             direction={i % 2 === 0 ? "left" : "right"}
-            speed={40 + i * 5}
+            speed={80 + i * 10}
             onPromptClick={onPromptClick}
           />
         ))}
-      </div>
-
-      {/* Studio categories – minimal row */}
-      <div className="px-5 w-full max-w-2xl">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium mb-2 px-1">
-          Studios
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {STUDIO_CATEGORIES.map((studio) => {
-            const Icon = studio.icon;
-            return (
-              <button
-                key={studio.id}
-                onClick={() => setSelectedStudio(studio)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card hover:bg-accent hover:border-foreground/10 transition-all text-xs text-muted-foreground hover:text-foreground group"
-              >
-                <Icon className="w-3 h-3" />
-                {studio.shortName}
-              </button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );
