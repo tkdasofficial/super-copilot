@@ -422,6 +422,9 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
             {message.ttsScript && (
               <TTSCard script={message.ttsScript} />
             )}
+            {message.generatedFile && (
+              <FileCreatorCard file={message.generatedFile} />
+            )}
 
             {/* Action bar */}
             {message.content && typingDone && (
