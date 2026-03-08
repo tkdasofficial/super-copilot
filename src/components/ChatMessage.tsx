@@ -1,15 +1,15 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import type { ChatMessage as ChatMessageType, StockVideo } from "@/lib/types";
-import { Copy, Check, Play, ExternalLink, Download } from "lucide-react";
+import { Copy, Check, Play, ExternalLink, Download, Volume2, VolumeX, ThumbsUp, ThumbsDown, Flag, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import { useToast } from "@/hooks/use-toast";
 import VideoGenerationCard from "./VideoGenerationCard";
 import VideoEditorCard from "./VideoEditorCard";
 import WebAppPreviewCard from "./WebAppPreviewCard";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
 
-/** Detect if message is short (casual) or long (detailed) */
 const getMessageSize = (content: string) => {
   if (content.length < 60) return "short";
   if (content.length < 200) return "medium";
@@ -19,12 +19,57 @@ const getMessageSize = (content: string) => {
 const ChatMessage = ({ message, isNew = false }: Props) => {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
+  const [reported, setReported] = useState(false);
+  const { toast } = useToast();
   const size = getMessageSize(message.content);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSpeak = useCallback(() => {
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+      return;
+    }
+    if (!("speechSynthesis" in window)) {
+      toast({ title: "Not supported", description: "Text-to-speech is not supported in this browser.", variant: "destructive" });
+      return;
+    }
+    // Strip markdown for cleaner speech
+    const plainText = message.content
+      .replace(/```[\s\S]*?```/g, " code block ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/[#*_~>\-|]/g, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/\n+/g, ". ")
+      .trim();
+
+    const utterance = new SpeechSynthesisUtterance(plainText);
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    setSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  }, [speaking, message.content, toast]);
+
+  const handleFeedback = (type: "up" | "down") => {
+    setFeedback(prev => prev === type ? null : type);
+    toast({
+      title: type === "up" ? "Thanks for the feedback!" : "We'll improve",
+      description: type === "up" ? "Glad this was helpful." : "Sorry about that. We'll work on it.",
+    });
+  };
+
+  const handleReport = () => {
+    setReported(true);
+    toast({ title: "Reported", description: "This response has been flagged for review." });
   };
 
   return (
@@ -66,88 +111,143 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               />
             )}
 
-              {message.content && (
+            {message.content && (
+              <div
+                className={cn(
+                  "relative rounded-2xl rounded-tl-sm",
+                  size === "short"
+                    ? "bg-card border border-border px-4 py-2.5 inline-block"
+                    : "px-0.5"
+                )}
+              >
                 <div
                   className={cn(
-                    "relative rounded-2xl rounded-tl-sm",
-                    size === "short"
-                      ? "bg-card border border-border px-4 py-2.5 inline-block"
-                      : "px-0.5"
+                    "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground",
+                    "[&_p]:leading-[1.7] [&_p]:mb-2.5",
+                    "[&_li]:leading-[1.7]",
+                    "[&_h1]:font-display [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-2",
+                    "[&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2",
+                    "[&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1.5",
+                    "[&_strong]:text-foreground [&_strong]:font-semibold",
+                    "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_a]:decoration-primary/40 hover:[&_a]:decoration-primary",
+                    "[&_code]:bg-accent [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_code]:text-[13px] [&_code]:font-mono",
+                    "[&_pre]:bg-accent [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-border [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:my-3",
+                    "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[13px]",
+                    "[&_blockquote]:border-l-[3px] [&_blockquote]:border-foreground/15 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_blockquote]:my-3 [&_blockquote]:bg-accent/50 [&_blockquote]:rounded-r-lg [&_blockquote]:pr-3",
+                    "[&_table]:border-collapse [&_table]:w-full [&_table]:my-3 [&_table]:rounded-lg [&_table]:overflow-hidden [&_table]:border [&_table]:border-border",
+                    "[&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:bg-accent [&_th]:text-xs [&_th]:font-semibold [&_th]:text-left [&_th]:uppercase [&_th]:tracking-wider",
+                    "[&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm",
+                    "[&_tr:hover]:bg-accent/30",
+                    "[&_ul]:space-y-1.5 [&_ul]:my-2 [&_ul]:pl-1",
+                    "[&_ol]:space-y-1.5 [&_ol]:my-2 [&_ol]:pl-1",
+                    "[&_li]:pl-1",
+                    "[&_hr]:border-border [&_hr]:my-4",
                   )}
                 >
-                  <div
-                    className={cn(
-                      "prose prose-sm prose-neutral dark:prose-invert max-w-none text-foreground",
-                      // Typography
-                      "[&_p]:leading-[1.7] [&_p]:mb-2.5",
-                      "[&_li]:leading-[1.7]",
-                      "[&_h1]:font-display [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mt-5 [&_h1]:mb-2",
-                      "[&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2",
-                      "[&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1.5",
-                      "[&_strong]:text-foreground [&_strong]:font-semibold",
-                      "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2 [&_a]:decoration-primary/40 hover:[&_a]:decoration-primary",
-                      // Code
-                      "[&_code]:bg-accent [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_code]:text-[13px] [&_code]:font-mono",
-                      "[&_pre]:bg-accent [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-border [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:my-3",
-                      "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-[13px]",
-                      // Blockquote
-                      "[&_blockquote]:border-l-[3px] [&_blockquote]:border-foreground/15 [&_blockquote]:pl-4 [&_blockquote]:py-0.5 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_blockquote]:my-3 [&_blockquote]:bg-accent/50 [&_blockquote]:rounded-r-lg [&_blockquote]:pr-3",
-                      // Table
-                      "[&_table]:border-collapse [&_table]:w-full [&_table]:my-3 [&_table]:rounded-lg [&_table]:overflow-hidden [&_table]:border [&_table]:border-border",
-                      "[&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-2 [&_th]:bg-accent [&_th]:text-xs [&_th]:font-semibold [&_th]:text-left [&_th]:uppercase [&_th]:tracking-wider",
-                      "[&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_td]:text-sm",
-                      "[&_tr:hover]:bg-accent/30",
-                      // Lists
-                      "[&_ul]:space-y-1.5 [&_ul]:my-2 [&_ul]:pl-1",
-                      "[&_ol]:space-y-1.5 [&_ol]:my-2 [&_ol]:pl-1",
-                      "[&_li]:pl-1",
-                      // Divider
-                      "[&_hr]:border-border [&_hr]:my-4",
-                    )}
-                  >
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
-                  </div>
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
                 </div>
-              )}
+              </div>
+            )}
 
-              {message.videos && message.videos.length > 0 && (
-                <VideoGrid videos={message.videos} />
-              )}
-              {message.videoGeneration && (
-                <VideoGenerationCard
-                  topic={message.videoGeneration.topic}
-                  duration={message.videoGeneration.duration}
-                  aspectRatio={message.videoGeneration.aspectRatio}
-                />
-              )}
-              {message.videoEdit && (
-                <VideoEditorCard userMessage={message.videoEdit.userMessage} />
-              )}
-              {message.webApp && (
-                <WebAppPreviewCard project={message.webApp} />
-              )}
+            {message.videos && message.videos.length > 0 && (
+              <VideoGrid videos={message.videos} />
+            )}
+            {message.videoGeneration && (
+              <VideoGenerationCard
+                topic={message.videoGeneration.topic}
+                duration={message.videoGeneration.duration}
+                aspectRatio={message.videoGeneration.aspectRatio}
+              />
+            )}
+            {message.videoEdit && (
+              <VideoEditorCard userMessage={message.videoEdit.userMessage} />
+            )}
+            {message.webApp && (
+              <WebAppPreviewCard project={message.webApp} />
+            )}
 
-              {/* Action bar — appears on hover */}
-              {message.content && (
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  <button
-                    onClick={handleCopy}
-                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                  >
-                    {copied ? (
-                      <><Check className="w-3 h-3" /> Copied</>
-                    ) : (
-                      <><Copy className="w-3 h-3" /> Copy</>
-                    )}
-                  </button>
-                </div>
-              )}
+            {/* ChatGPT-style action bar */}
+            {message.content && (
+              <div className="flex items-center gap-0.5 pt-1">
+                {/* TTS */}
+                <ActionButton
+                  onClick={handleSpeak}
+                  active={speaking}
+                  title={speaking ? "Stop listening" : "Listen"}
+                >
+                  {speaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                </ActionButton>
+
+                {/* Copy */}
+                <ActionButton onClick={handleCopy} active={copied} title="Copy">
+                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                </ActionButton>
+
+                {/* Thumbs up */}
+                <ActionButton
+                  onClick={() => handleFeedback("up")}
+                  active={feedback === "up"}
+                  title="Good response"
+                >
+                  <ThumbsUp className="w-3.5 h-3.5" />
+                </ActionButton>
+
+                {/* Thumbs down */}
+                <ActionButton
+                  onClick={() => handleFeedback("down")}
+                  active={feedback === "down"}
+                  title="Bad response"
+                >
+                  <ThumbsDown className="w-3.5 h-3.5" />
+                </ActionButton>
+
+                {/* Report */}
+                <ActionButton
+                  onClick={handleReport}
+                  active={reported}
+                  disabled={reported}
+                  title="Report"
+                >
+                  <Flag className="w-3.5 h-3.5" />
+                </ActionButton>
+              </div>
+            )}
           </div>
         </div>
       )}
     </div>
   );
 };
+
+/** Reusable small icon button for action bar */
+const ActionButton = ({
+  children,
+  onClick,
+  active = false,
+  disabled = false,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  active?: boolean;
+  disabled?: boolean;
+  title: string;
+}) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    title={title}
+    className={cn(
+      "p-1.5 rounded-lg transition-colors",
+      active
+        ? "text-foreground bg-accent"
+        : "text-muted-foreground hover:text-foreground hover:bg-accent",
+      disabled && "opacity-50 cursor-not-allowed"
+    )}
+  >
+    {children}
+  </button>
+);
 
 const VideoGrid = ({ videos }: { videos: StockVideo[] }) => {
   const [playingId, setPlayingId] = useState<number | null>(null);
