@@ -88,7 +88,7 @@ const Auth = () => {
         type: "email",
       });
       if (error) throw error;
-      navigate("/");
+      navigate("/app/new");
     } catch (e: any) {
       toast({ title: "Invalid code", description: e.message, variant: "destructive" });
     } finally {
