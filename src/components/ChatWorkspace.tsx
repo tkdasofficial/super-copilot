@@ -12,6 +12,8 @@ import { getCategory } from "@/lib/file-converter";
 import { analyzeZip } from "@/lib/zip-analyzer";
 import type { TaskMode } from "./TaskModeSelector";
 import { useBackgroundTasks, type BackgroundTask } from "@/hooks/useBackgroundTasks";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 
 type Props = {
   tool?: AITool;
@@ -36,6 +38,8 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   const scrollRef = useRef<HTMLDivElement>(null);
   const { addChat, updateChatMessages } = useChatHistory();
   const { tasks: bgTasks, activeTasks, dispatch: dispatchBgTask } = useBackgroundTasks(chatId);
+  const { user } = useAuth();
+  const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
 
   // Handle background task completion — inject result as assistant message
   const handleBgTaskResult = useCallback((task: BackgroundTask) => {
@@ -99,6 +103,49 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       updateChatMessages(chatId, messages);
     }
   }, [messages, chatId, updateChatMessages]);
+
+  // Subscribe to new messages from Supabase Realtime
+  useEffect(() => {
+    if (!chatId || !user) return;
+
+    const channel = supabase
+      .channel(`chat:${chatId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `session_id=eq.${chatId}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as any;
+          // Only add AI messages (user messages are added immediately in handleSend)
+          if (newMsg.role === "assistant") {
+            const chatMsg: ChatMessageType = {
+              id: newMsg.id,
+              role: "assistant",
+              content: newMsg.content || "",
+              timestamp: new Date(newMsg.created_at),
+              imageUrl: newMsg.image_url || undefined,
+              toolId: newMsg.metadata?.toolId,
+            };
+            setMessages((prev) => {
+              // Avoid duplicates
+              if (prev.some((m) => m.id === chatMsg.id)) return prev;
+              return [...prev, chatMsg];
+            });
+            setNewMessageIds((prev) => new Set(prev).add(newMsg.id));
+            setIsTyping(false);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId, user]);
 
   const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, taskMode?: TaskMode) => {
     const userMsg: ChatMessageType = {
@@ -531,7 +578,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       setTimeout(() => setThinkingPhase("researching"), 3500);
     }
 
-    // Regular chat - streaming (with background task insurance)
+    // Regular chat - send to backend, response will come via Realtime
     try {
       const chatMessages = messages
         .filter((m) => !m.imageUrl || m.role === "user")
@@ -563,83 +610,31 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       // Dispatch background task as insurance (runs server-side if user leaves)
       dispatchBgTask("chat", { messages: chatMessages, toolId: tool?.id, webAnalysis: isWebAnalysis }, chatId || undefined).catch(() => {});
 
+      // Switch to working phase
+      setThinkingPhase(phase === "thinking" ? "working" : phase);
+
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ messages: chatMessages, toolId: tool?.id, webAnalysis: isWebAnalysis }),
+        body: JSON.stringify({
+          messages: chatMessages,
+          toolId: tool?.id,
+          webAnalysis: isWebAnalysis,
+          sessionId: chatId,
+          userId: user?.id,
+        }),
       });
 
-      if (!resp.ok || !resp.body) {
-        const errData = await resp.json().catch(() => ({}));
-        throw new Error(errData.error || "Chat failed");
+      const data = await resp.json();
+      if (!resp.ok) {
+        throw new Error(data.error || "Chat failed");
       }
 
-      // Switch to working phase once streaming starts
-      setThinkingPhase(phase === "thinking" ? "working" : phase);
-
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-      let assistantContent = "";
-      let assistantMsgCreated = false;
-      const aiId = (Date.now() + 1).toString();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (!line.startsWith("data: ")) continue;
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") break;
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const delta = parsed.choices?.[0]?.delta?.content;
-            if (delta) {
-              // Once we get first token, stop showing typing indicator
-              if (!assistantMsgCreated) {
-                setIsTyping(false);
-              }
-              assistantContent += delta;
-              if (!assistantMsgCreated) {
-                assistantMsgCreated = true;
-                setMessages((prev) => [...prev, {
-                  id: aiId,
-                  role: "assistant",
-                  content: assistantContent,
-                  timestamp: new Date(),
-                  toolId: tool?.id,
-                }]);
-              } else {
-                setMessages((prev) =>
-                  prev.map((m) => m.id === aiId ? { ...m, content: assistantContent } : m)
-                );
-              }
-            }
-          } catch {
-            // partial JSON, skip
-          }
-        }
-      }
-
-      if (!assistantMsgCreated) {
-        setMessages((prev) => [...prev, {
-          id: aiId,
-          role: "assistant",
-          content: assistantContent || "I couldn't generate a response. Please try again.",
-          timestamp: new Date(),
-          toolId: tool?.id,
-        }]);
-      }
+      // Response will arrive via Realtime subscription
+      // Keep typing indicator until message arrives
     } catch (e: any) {
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
@@ -647,10 +642,9 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         content: `Sorry, an error occurred: ${e.message}`,
         timestamp: new Date(),
       }]);
+      clearTimeout(phaseTimer);
+      setIsTyping(false);
     }
-
-    clearTimeout(phaseTimer);
-    setIsTyping(false);
   }, [tool, chatId, addChat, messages, updateChatMessages, dispatchBgTask]);
 
   const handleZipUpload = useCallback(async (file: File) => {
@@ -757,8 +751,12 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {hasMessages ? (
           <div className="py-3">
-            {messages.map((msg, i) => (
-              <ChatMessage key={msg.id} message={msg} isNew={i === messages.length - 1 && msg.role === "assistant" && i >= initialMsgCount.current} />
+            {messages.map((msg) => (
+              <ChatMessage
+                key={msg.id}
+                message={msg}
+                isNew={newMessageIds.has(msg.id)}
+              />
             ))}
             {isTyping && <TypingIndicator phase={thinkingPhase} />}
           </div>
