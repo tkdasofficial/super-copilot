@@ -250,9 +250,12 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
   const [feedback, setFeedback] = useState<"up" | "down" | null>(null);
   const [reported, setReported] = useState(false);
   const { toast } = useToast();
+  const mountedRef = useRef(false);
 
-  // Enable typewriter streaming for new AI messages
-  const shouldAnimate = isNew && !isUser;
+  // Animate on first mount for new AI messages only
+  const shouldAnimate = isNew && !isUser && !mountedRef.current;
+  useEffect(() => { mountedRef.current = true; }, []);
+
   const segments = useMemo(() => splitContent(message.content), [message.content]);
   const { charCounts, allDone: typingDone } = useSegmentedTypewriter(segments, shouldAnimate);
 
