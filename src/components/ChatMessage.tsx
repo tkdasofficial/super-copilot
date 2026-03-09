@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo, forwardRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, forwardRef, forwardRef } from "react";
 import type { ChatMessage as ChatMessageType, StockVideo } from "@/lib/types";
 import { Copy, Check, Play, ExternalLink, Download, Volume2, VolumeX, ThumbsUp, ThumbsDown, Flag, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -243,7 +243,7 @@ const useSegmentedTypewriter = (segments: Segment[], enabled: boolean) => {
   return { charCounts, allDone };
 };
 
-const ChatMessage = ({ message, isNew = false }: Props) => {
+const ChforwardRef<HTMLDivElement, Props>(({ message, isNew = false }: Props, reflse }: Props) => {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
