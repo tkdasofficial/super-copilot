@@ -41,6 +41,12 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   const { user } = useAuth();
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
 
+  // Helper: add an assistant message and mark it as "new" for typewriter animation
+  const addAssistantMessage = useCallback((msg: ChatMessageType) => {
+    setMessages((prev) => [...prev, msg]);
+    setNewMessageIds((prev) => new Set(prev).add(msg.id));
+  }, []);
+
   // Handle background task completion — inject result as assistant message
   const handleBgTaskResult = useCallback((task: BackgroundTask) => {
     if (!task.result) return;
