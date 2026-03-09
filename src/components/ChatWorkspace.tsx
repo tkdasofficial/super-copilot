@@ -603,8 +603,9 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     );
 
     if (isWebAnalysis) {
-      setThinkingPhase("fetching");
-      setTimeout(() => setThinkingPhase("researching"), 3500);
+      clearTimeout(phaseTimer);
+      fetchPhaseTimer = window.setTimeout(() => setThinkingPhase("fetching"), 1200);
+      researchPhaseTimer = window.setTimeout(() => setThinkingPhase("researching"), 3500);
     }
 
     // Regular chat - send to backend, response will come via Realtime
