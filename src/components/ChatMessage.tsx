@@ -358,7 +358,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
               if (seg.type === "task") {
                 const segDone = charCounts[i] >= seg.content.length;
                 return (
-                  <div key={i} className="rounded-xl border border-border bg-card overflow-hidden w-full">
+                  <div key={i} className="rounded-xl border border-border bg-card overflow-hidden w-full will-change-contents">
                     <div className="flex items-center justify-between px-3 sm:px-4 md:px-5 pt-2.5 pb-1">
                       <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Task</span>
                       {segDone && <CardCopyButton content={seg.content} />}
@@ -369,6 +369,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                         proseClasses
                       )}>
                         <ReactMarkdown components={mdComponents}>{displayed}</ReactMarkdown>
+                        {isActive && <span className="inline-block w-[2px] h-[1em] bg-foreground/70 align-middle animate-pulse ml-0.5" />}
                       </div>
                     </div>
                   </div>
@@ -381,7 +382,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                 <div
                   key={i}
                   className={cn(
-                    "relative rounded-2xl rounded-tl-sm",
+                    "relative rounded-2xl rounded-tl-sm will-change-contents",
                     textSize === "short"
                       ? "bg-card border border-border px-3.5 py-2.5 inline-block"
                       : "px-0.5"
@@ -392,6 +393,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
                     proseClasses
                   )}>
                     <ReactMarkdown components={mdComponents}>{displayed}</ReactMarkdown>
+                    {isActive && <span className="inline-block w-[2px] h-[1em] bg-foreground/70 align-middle animate-pulse ml-0.5" />}
                   </div>
                 </div>
               );
