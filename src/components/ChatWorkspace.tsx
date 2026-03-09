@@ -196,10 +196,18 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       onChatCreated?.(newId);
     }
 
-    // Transition from "thinking" to the actual work phase after a delay
-    const phaseTimer = setTimeout(() => {
+    // Transition from "thinking" to the detected work phase after a delay
+    const phaseTimer = window.setTimeout(() => {
       setThinkingPhase(phase);
     }, 1200);
+    let fetchPhaseTimer: number | undefined;
+    let researchPhaseTimer: number | undefined;
+
+    const clearPhaseTimers = () => {
+      clearTimeout(phaseTimer);
+      if (fetchPhaseTimer) clearTimeout(fetchPhaseTimer);
+      if (researchPhaseTimer) clearTimeout(researchPhaseTimer);
+    };
 
     // Designer mode: detect if it's a UI/web design request vs image generation
     const isUIDesign = taskMode === "designer" && /\b(ui|ux|website|web\s*app|mobile\s*app|landing\s*page|dashboard|layout|wireframe|mockup|prototype|interface|screen|page\s*design|app\s*design|redesign)\b/i.test(content);
