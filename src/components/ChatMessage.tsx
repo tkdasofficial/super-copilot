@@ -313,7 +313,7 @@ const ChforwardRef<HTMLDivElement, Props>(({ message, isNew = false }: Props, re
 
   return (
     <div
-      className={cn(
+      ref={ref}
         "px-3 sm:px-4 md:px-6 w-full max-w-2xl mx-auto transition-all duration-300",
         isUser ? "py-1.5" : "py-3",
         isNew && "animate-fade-in"
