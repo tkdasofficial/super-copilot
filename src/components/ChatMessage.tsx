@@ -243,7 +243,7 @@ const useSegmentedTypewriter = (segments: Segment[], enabled: boolean) => {
   return { charCounts, allDone };
 };
 
-const ChforwardRef<HTMLDivElement, Props>(({ message, isNew = false }: Props, reflse }: Props) => {
+const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false }, ref) => {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
