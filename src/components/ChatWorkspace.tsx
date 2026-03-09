@@ -563,7 +563,6 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     if (isMultiStep) {
       try {
-        setThinkingPhase("working");
         dispatchBgTask("agent", { prompt: content }, chatId || undefined).catch(() => {});
         const resp = await fetch(AGENT_PLANNER_URL, {
           method: "POST",
