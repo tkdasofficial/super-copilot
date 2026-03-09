@@ -314,6 +314,7 @@ const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false 
   return (
     <div
       ref={ref}
+      className={cn(
         "px-3 sm:px-4 md:px-6 w-full max-w-2xl mx-auto transition-all duration-300",
         isUser ? "py-1.5" : "py-3",
         isNew && "animate-fade-in"
