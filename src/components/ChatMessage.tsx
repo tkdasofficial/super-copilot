@@ -109,7 +109,7 @@ const CardCopyButton = ({ content }: { content: string }) => {
 };
 
 const NORMAL_CPS = 50;
-const TASK_CPS = 200;
+const TASK_CPS = 180;
 
 /* ── Content splitter ──
    Splits AI content into segments: [text, task, text]
