@@ -302,67 +302,75 @@ serve(async (req) => {
       );
     }
 
-    // Transform Gemini SSE stream to OpenAI-compatible SSE stream
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
-    const encoder = new TextEncoder();
+    // Buffer the complete response instead of streaming
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let fullResponse = "";
 
-    (async () => {
-      try {
-        const reader = response.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
+      let newlineIndex: number;
+      while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+        let line = buffer.slice(0, newlineIndex);
+        buffer = buffer.slice(newlineIndex + 1);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
 
-          let newlineIndex: number;
-          while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-            let line = buffer.slice(0, newlineIndex);
-            buffer = buffer.slice(newlineIndex + 1);
-            if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (!line.startsWith("data: ")) continue;
+        const jsonStr = line.slice(6).trim();
+        if (!jsonStr) continue;
 
-            if (!line.startsWith("data: ")) continue;
-            const jsonStr = line.slice(6).trim();
-            if (!jsonStr) continue;
-
-            try {
-              const parsed = JSON.parse(jsonStr);
-              // Extract text from all parts (grounding responses may have multiple parts)
-              const parts = parsed.candidates?.[0]?.content?.parts;
-              if (parts) {
-                let textContent = "";
-                for (const part of parts) {
-                  if (part.text) {
-                    textContent += part.text;
-                  }
-                }
-                if (textContent) {
-                  const chunk = {
-                    choices: [{ delta: { content: textContent } }],
-                  };
-                  await writer.write(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
-                }
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const parts = parsed.candidates?.[0]?.content?.parts;
+          if (parts) {
+            for (const part of parts) {
+              if (part.text) {
+                fullResponse += part.text;
               }
-            } catch {
-              // partial JSON, skip
             }
           }
+        } catch {
+          // partial JSON, skip
         }
-
-        await writer.write(encoder.encode("data: [DONE]\n\n"));
-      } catch (e) {
-        console.error("Stream processing error:", e);
-      } finally {
-        await writer.close();
       }
-    })();
+    }
 
-    return new Response(readable, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    // Save user message and AI response to database
+    if (sessionId && userId && fullResponse) {
+      const supabase = getSupabaseAdmin();
+      
+      // Save user message
+      const lastUserMsg = messages[messages.length - 1];
+      const userContent = typeof lastUserMsg.content === "string" 
+        ? lastUserMsg.content 
+        : (Array.isArray(lastUserMsg.content) 
+          ? lastUserMsg.content.filter((p: any) => p.type === "text").map((p: any) => p.text).join(" ")
+          : "");
+      
+      await supabase.from("chat_messages").insert({
+        session_id: sessionId,
+        role: "user",
+        content: userContent,
+        metadata: { toolId },
+      });
+
+      // Save AI response
+      await supabase.from("chat_messages").insert({
+        session_id: sessionId,
+        role: "assistant",
+        content: fullResponse,
+        metadata: { toolId },
+      });
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, message: "Response saved to database" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (e) {
     console.error("chat error:", e);
     return new Response(
