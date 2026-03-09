@@ -751,8 +751,12 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         {hasMessages ? (
           <div className="py-3">
-            {messages.map((msg, i) => (
-              <ChatMessage key={msg.id} message={msg} isNew={i === messages.length - 1 && msg.role === "assistant" && i >= initialMsgCount.current} />
+            {messages.map((msg) => (
+              <ChatMessage
+                key={msg.id}
+                message={msg}
+                isNew={newMessageIds.has(msg.id)}
+              />
             ))}
             {isTyping && <TypingIndicator phase={thinkingPhase} />}
           </div>
