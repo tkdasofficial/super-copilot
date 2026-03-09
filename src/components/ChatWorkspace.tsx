@@ -38,6 +38,8 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   const scrollRef = useRef<HTMLDivElement>(null);
   const { addChat, updateChatMessages } = useChatHistory();
   const { tasks: bgTasks, activeTasks, dispatch: dispatchBgTask } = useBackgroundTasks(chatId);
+  const { user } = useAuth();
+  const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
 
   // Handle background task completion — inject result as assistant message
   const handleBgTaskResult = useCallback((task: BackgroundTask) => {
