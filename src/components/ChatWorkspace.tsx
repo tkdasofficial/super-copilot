@@ -104,6 +104,49 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }
   }, [messages, chatId, updateChatMessages]);
 
+  // Subscribe to new messages from Supabase Realtime
+  useEffect(() => {
+    if (!chatId || !user) return;
+
+    const channel = supabase
+      .channel(`chat:${chatId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `session_id=eq.${chatId}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as any;
+          // Only add AI messages (user messages are added immediately in handleSend)
+          if (newMsg.role === "assistant") {
+            const chatMsg: ChatMessageType = {
+              id: newMsg.id,
+              role: "assistant",
+              content: newMsg.content || "",
+              timestamp: new Date(newMsg.created_at),
+              imageUrl: newMsg.image_url || undefined,
+              toolId: newMsg.metadata?.toolId,
+            };
+            setMessages((prev) => {
+              // Avoid duplicates
+              if (prev.some((m) => m.id === chatMsg.id)) return prev;
+              return [...prev, chatMsg];
+            });
+            setNewMessageIds((prev) => new Set(prev).add(newMsg.id));
+            setIsTyping(false);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [chatId, user]);
+
   const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, taskMode?: TaskMode) => {
     const userMsg: ChatMessageType = {
       id: Date.now().toString(),
