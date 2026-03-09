@@ -251,8 +251,8 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
   const [reported, setReported] = useState(false);
   const { toast } = useToast();
 
-  // Disable typewriter animation for new messages (they use fade-in instead)
-  const shouldAnimate = false;
+  // Enable typewriter streaming for new AI messages
+  const shouldAnimate = isNew && !isUser;
   const segments = useMemo(() => splitContent(message.content), [message.content]);
   const { charCounts, allDone: typingDone } = useSegmentedTypewriter(segments, shouldAnimate);
 
