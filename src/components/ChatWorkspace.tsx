@@ -425,7 +425,6 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const detectedFormat = isExcelKeyword && (!fmMatch || ["excel","spreadsheet","sheet","workbook"].includes(fmMatch)) ? "xlsx" : (fmMatch || "txt");
 
       try {
-        setThinkingPhase("working");
         dispatchBgTask("file", { prompt: content, format: detectedFormat }, chatId || undefined).catch(() => {});
         const resp = await fetch(FILE_CREATOR_URL, {
           method: "POST",
