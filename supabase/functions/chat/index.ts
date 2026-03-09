@@ -142,7 +142,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, toolId, webAnalysis } = await req.json();
+    const { messages, toolId, webAnalysis, sessionId, userId } = await req.json();
 
     // Gather all API keys for fallback
     const geminiKeys: string[] = [];
