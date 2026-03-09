@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo, forwardRef } from "react";
 import type { ChatMessage as ChatMessageType, StockVideo } from "@/lib/types";
 import { Copy, Check, Play, ExternalLink, Download, Volume2, VolumeX, ThumbsUp, ThumbsDown, Flag, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -243,7 +243,7 @@ const useSegmentedTypewriter = (segments: Segment[], enabled: boolean) => {
   return { charCounts, allDone };
 };
 
-const ChatMessage = ({ message, isNew = false }: Props) => {
+const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false }, ref) => {
   const isUser = message.role === "user";
   const [copied, setCopied] = useState(false);
   const [speaking, setSpeaking] = useState(false);
@@ -313,6 +313,7 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
 
   return (
     <div
+      ref={ref}
       className={cn(
         "px-3 sm:px-4 md:px-6 w-full max-w-2xl mx-auto transition-all duration-300",
         isUser ? "py-1.5" : "py-3",
@@ -459,7 +460,8 @@ const ChatMessage = ({ message, isNew = false }: Props) => {
       )}
     </div>
   );
-};
+});
+ChatMessage.displayName = "ChatMessage";
 /** Reusable small icon button for action bar */
 const ActionButton = ({
   children,

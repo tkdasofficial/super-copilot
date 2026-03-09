@@ -196,10 +196,18 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       onChatCreated?.(newId);
     }
 
-    // Transition from "thinking" to the actual work phase after a delay
-    const phaseTimer = setTimeout(() => {
+    // Transition from "thinking" to the detected work phase after a delay
+    const phaseTimer = window.setTimeout(() => {
       setThinkingPhase(phase);
     }, 1200);
+    let fetchPhaseTimer: number | undefined;
+    let researchPhaseTimer: number | undefined;
+
+    const clearPhaseTimers = () => {
+      clearTimeout(phaseTimer);
+      if (fetchPhaseTimer) clearTimeout(fetchPhaseTimer);
+      if (researchPhaseTimer) clearTimeout(researchPhaseTimer);
+    };
 
     // Designer mode: detect if it's a UI/web design request vs image generation
     const isUIDesign = taskMode === "designer" && /\b(ui|ux|website|web\s*app|mobile\s*app|landing\s*page|dashboard|layout|wireframe|mockup|prototype|interface|screen|page\s*design|app\s*design|redesign)\b/i.test(content);
@@ -417,7 +425,6 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const detectedFormat = isExcelKeyword && (!fmMatch || ["excel","spreadsheet","sheet","workbook"].includes(fmMatch)) ? "xlsx" : (fmMatch || "txt");
 
       try {
-        setThinkingPhase("working");
         dispatchBgTask("file", { prompt: content, format: detectedFormat }, chatId || undefined).catch(() => {});
         const resp = await fetch(FILE_CREATOR_URL, {
           method: "POST",
@@ -556,7 +563,6 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     if (isMultiStep) {
       try {
-        setThinkingPhase("working");
         dispatchBgTask("agent", { prompt: content }, chatId || undefined).catch(() => {});
         const resp = await fetch(AGENT_PLANNER_URL, {
           method: "POST",
@@ -597,8 +603,9 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     );
 
     if (isWebAnalysis) {
-      setThinkingPhase("fetching");
-      setTimeout(() => setThinkingPhase("researching"), 3500);
+      clearTimeout(phaseTimer);
+      fetchPhaseTimer = window.setTimeout(() => setThinkingPhase("fetching"), 1200);
+      researchPhaseTimer = window.setTimeout(() => setThinkingPhase("researching"), 3500);
     }
 
     // Regular chat - send to backend, response will come via Realtime
@@ -632,9 +639,6 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
       // Dispatch background task as insurance (runs server-side if user leaves)
       dispatchBgTask("chat", { messages: chatMessages, toolId: tool?.id, webAnalysis: isWebAnalysis }, chatId || undefined).catch(() => {});
-
-      // Switch to working phase
-      setThinkingPhase(phase === "thinking" ? "working" : phase);
 
       const resp = await fetch(CHAT_URL, {
         method: "POST",
