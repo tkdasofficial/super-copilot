@@ -41,6 +41,29 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   const { user } = useAuth();
   const [newMessageIds, setNewMessageIds] = useState<Set<string>>(new Set());
 
+  // Track message IDs we've already seen to detect new ones
+  const knownIdsRef = useRef<Set<string>>(new Set((initialMessages || []).map(m => m.id)));
+
+  // Whenever messages change, mark any new assistant messages for typewriter animation
+  useEffect(() => {
+    const newAssistantIds: string[] = [];
+    for (const msg of messages) {
+      if (!knownIdsRef.current.has(msg.id)) {
+        knownIdsRef.current.add(msg.id);
+        if (msg.role === "assistant") {
+          newAssistantIds.push(msg.id);
+        }
+      }
+    }
+    if (newAssistantIds.length > 0) {
+      setNewMessageIds((prev) => {
+        const next = new Set(prev);
+        newAssistantIds.forEach(id => next.add(id));
+        return next;
+      });
+    }
+  }, [messages]);
+
   // Handle background task completion — inject result as assistant message
   const handleBgTaskResult = useCallback((task: BackgroundTask) => {
     if (!task.result) return;
