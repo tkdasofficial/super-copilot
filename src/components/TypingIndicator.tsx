@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef } from "react";
 
 export type ThinkingPhase = "thinking" | "creating" | "analyzing" | "working" | "researching" | "fetching" | "writing" | "optimizing";
 
@@ -17,7 +17,7 @@ type Props = {
   phase?: ThinkingPhase;
 };
 
-const TypingIndicator = ({ phase = "thinking" }: Props) => {
+const TypingIndicator = forwardRef<HTMLDivElement, Props>(({ phase = "thinking" }, ref) => {
   const [dots, setDots] = useState(0);
 
   useEffect(() => {
@@ -31,13 +31,15 @@ const TypingIndicator = ({ phase = "thinking" }: Props) => {
   const dotStr = ".".repeat(dots);
 
   return (
-    <div className="flex items-center gap-2 px-4 py-3 max-w-2xl mx-auto animate-fade-in">
+    <div ref={ref} className="flex items-center gap-2 px-4 py-3 max-w-2xl mx-auto animate-fade-in">
       <span className="text-sm text-muted-foreground font-medium">
         {label}{dotStr}
       </span>
     </div>
   );
-};
+});
+
+TypingIndicator.displayName = "TypingIndicator";
 
 export default TypingIndicator;
 

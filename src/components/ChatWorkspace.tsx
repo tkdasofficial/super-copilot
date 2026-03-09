@@ -640,9 +640,6 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       // Dispatch background task as insurance (runs server-side if user leaves)
       dispatchBgTask("chat", { messages: chatMessages, toolId: tool?.id, webAnalysis: isWebAnalysis }, chatId || undefined).catch(() => {});
 
-      // Switch to working phase
-      setThinkingPhase(phase === "thinking" ? "working" : phase);
-
       const resp = await fetch(CHAT_URL, {
         method: "POST",
         headers: {

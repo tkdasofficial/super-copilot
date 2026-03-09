@@ -459,7 +459,8 @@ const ChforwardRef<HTMLDivElement, Props>(({ message, isNew = false }: Props, re
       )}
     </div>
   );
-};
+});
+ChatMessage.displayName = "ChatMessage";
 /** Reusable small icon button for action bar */
 const ActionButton = ({
   children,
